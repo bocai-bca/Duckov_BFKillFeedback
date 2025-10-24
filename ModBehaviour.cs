@@ -1,36 +1,60 @@
 ﻿using FMOD;
 using FMODUnity;
+using ItemStatsSystem;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using UnityEngine;
-using UnityEngine.UI;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using TMPro;
 using Unity.Mathematics;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 namespace BFKillFeedback
 {
 	public class ModBehaviour : Duckov.Modding.ModBehaviour
 	{
+		public readonly static Vector2 BaseResolution = new Vector2(1920.0f, 1080.0f);
 		public static bool Loaded = false;
 		public static Dictionary<string, object> DefaultConfig = new Dictionary<string, object>(){
-			{"use_bf5_sfx", false}, //使用BF5音效
-			{"volume", 0.5f}, //音量
-			{"alpha", 0.75f }, //不透明度
+			{"use_sfx_namespace", "bf5"}, //使用的音效命名空间
+			{"volume", 0.6f}, //音量
 			{"max_skull_count", 10}, //最大骷髅头数
-			{"enforce_max_skull_count", 15}, //强制最大骷髅头数
+			{"enforce_max_skull_count", 25}, //强制最大骷髅头数
 			{"disable_icon", false}, //禁用图标
-			{"skull_fadein_seconds", 0.25f}, //骷髅头淡入时间
-			{"skull_stay_seconds", 3.0f}, //骷髅头留置时间
-			{"skull_fadeout_seconds", 0.5f}, //骷髅头淡出时间
-			{"skull_spacing", 0.3f}, //骷髅头之间的间距乘数，基于骷髅头Transform的宽度，实际的间距是两个骷髅头的一左一右间距相加
-			{"skull_color", "FFFFFF"}, //普通骷髅头颜色
-			{"headshot_skull_color", "FF8C00"}, //爆头骷髅头颜色
+			{"skull_fadein_seconds", 0.4f}, //骷髅头淡入时间
+			{"skull_stay_seconds", 5.0f}, //骷髅头留置时间
+			{"skull_fadeout_seconds", 0.3f}, //骷髅头淡出时间
+			{"skull_spacing", 0.125f}, //骷髅头之间的间距乘数，基于骷髅头Transform的宽度，实际的间距是两个骷髅头的一左一右间距相加
+			{"skull_color", "FFFFFFD9"}, //普通骷髅头颜色(含不透明度)
+			{"headshot_skull_color", "FF8C00D9"}, //爆头骷髅头颜色(含不透明度)
+			{"headshot_ring_init_size_rate", 0.75f}, //爆头骷髅头圆圈起始放大倍率
+			{"headshot_ring_max_size_rate", 6.0f}, //爆头骷髅头圆圈最大放大倍率
+			{"headshot_ring_bold_alpha_decrease", 0.4f}, //爆头骷髅头圆圈粗线差分的不透明度减值
+			{"headshot_ring_stay_seconds", 1.0f}, //爆头骷髅头圆圈存在持续时间
 			{"position_offset_x", 0.0f}, //坐标偏移X
-			{"position_offset_y", 0.0f}, //坐标偏移Y
+			{"position_offset_y", -0.2f}, //坐标偏移Y
 			{"scale", 1.0f}, //缩放倍率
-			{"skull_scale_on_drop", 1.3f}, //图标在初始化时的尺寸乘数，基于正常尺寸，用于图标掉入效果
+			{"disable_addition_scale", false}, //禁用增量缩放，增量缩放是会跟随窗口分辨率变化的缩放功能
+			{"skull_scale_on_drop", 2.0f}, //图标在初始化时的尺寸乘数，基于正常尺寸，用于图标掉入效果
+			{"disable_text", false}, //禁用击杀文本
+			{"text_template", "{0}#{1}[{2}]{3}m +{4}"}, //击杀文本模板，0=敌人名字，1=击杀计数，2=使用的武器，3=距离，4=加分(经验值)
+			{"text_color", "FFFFFFD9"}, //击杀文本颜色(含不透明度)
+			{"text_position_offset_x", 0.0f}, //文本坐标偏移X，为1.0时代表半个屏幕分辨率
+			{"text_position_offset_y", -0.175f}, //文本坐标偏移Y，为1.0时代表半个屏幕分辨率
+			{"text_scale", 1.0f}, //文本缩放倍率
+			{"text_stay_seconds", 2.0f}, //单个击杀文本的停留时间(含淡入时间)
+			{"text_memory_length", 30}, //同时存储的击杀文本数量
+			{"text_fade_seconds", 0.25f}, //文本淡入淡出时间(不可为0)
+			{"disable_score", false}, //禁用分数
+			{"score_color", "FFFFFFD9"}, //分数文本颜色(含不透明度)
+			{"score_text_position_offset_x", 0.0f}, //分数文本坐标偏移X，为1.0时代表半个屏幕分辨率
+			{"score_text_position_offset_y", -0.3f}, //分数文本坐标偏移Y，为1.0时代表半个屏幕分辨率
+			{"score_scale", 2.5f}, //分数缩放倍率
+			{"score_text_number_increase_per_second", 200}, //分数文本数字增加速度(每秒)
+			{"score_text_stay_seconds", 7.0f}, //分数文本在消失前的等待时间
 		};
 		public static ModBehaviour? Instance;
 		// 所有图标名称，这些名称将用于拼接成定位图片资源的路径(.png)
@@ -38,78 +62,121 @@ namespace BFKillFeedback
 		{
 			"kill",
 			"headkill",
-			"headkill_frame"
+			"headkill_frame_thin",
+			"headkill_frame_bold"
 		};
 		// 所有音频名称，这些名称将用于拼接成定位音频资源的路径(.wav)
-		public static readonly string[] AudioNames = new string[]
+		/*public static readonly string[] AudioNames = new string[]
 		{
-			"bf1_kill",
-			"bf1_headkill_0",
-			"bf1_headkill_1",
-			"bf1_headkill_2",
-			"bf1_headkill_3",
-			"bf1_headkill_4",
-			"bf5_kill",
-			"bf5_headkill_0",
-			"bf5_headkill_1",
-			"bf5_headkill_2",
-			"bf5_headkill_3",
-			"bf5_headkill_4",
-		};
+			"kill_",
+			"headkill_",
+			"oneshotheadkill_",
+			"meleekill_",
+			"critmeleekill_",
+			"explosionkill_",
+		};*/
 		// 从硬盘加载到内存的图片资源
-		public static Dictionary<string, Texture2D> Images = new Dictionary<string, Texture2D>();
+		public static Dictionary<string, Sprite> Images = new Dictionary<string, Sprite>();
 		// 从硬盘加载到内存的音频资源
-		//public static Dictionary<string, AudioClip> KillFeedbackAudios = new Dictionary<string, AudioClip>();
-		public static Dictionary<string, Sound> Audios = new Dictionary<string, Sound>();
+		public static List<Sound> AudiosDeath = new List<Sound>();
+		public static List<Sound> AudiosKill = new List<Sound>();
+		public static List<Sound> AudiosHeadKill = new List<Sound>();
+		public static List<Sound> AudiosOneshotHeadKill = new List<Sound>();
+		public static List<Sound> AudiosMeleeKill = new List<Sound>();
+		public static List<Sound> AudiosCritMeleeKill = new List<Sound>();
+		public static List<Sound> AudiosOneshotMeleeKill = new List<Sound>();
+		public static List<Sound> AudiosExplosionKill = new List<Sound>();
+		public static List<Sound> AudiosOneshotExplosionKill = new List<Sound>();
 		public static RectTransform? ui_transform;
+		public static RectTransform? ui_text_transform;
+		public static TextMeshProUGUI? ui_text;
+		public static RectTransform? ui_score_transform;
+		public static TextMeshProUGUI? ui_score;
+		// 配置文件-使用的音效命名空间
+		public static string sfx_namespace = "bf5";
 		// 配置文件-音量，0-1决定音量大小
 		public static float volume = 0.5f;
-		// 配置文件-不透明度，0-1决定不透明度
-		public static float alpha = 0.75f;
 		// 配置文件-允许同时存在的最大骷髅头数，超过此数时添加新骷髅头将导致旧骷髅头立即开始消失
 		public static int max_skull_count = 10;
 		// 配置文件-强制允许同时存在的最大骷髅头数，超过此数时击杀敌人不会添加新骷髅头
-		public static int enforce_max_skull_count = 15;
+		public static int enforce_max_skull_count = 25;
 		// 配置文件-禁用图标，为true时不显示图标
 		public static bool disable_icon = false;
 		// 配置文件-骷髅头淡入时间
-		public static float skull_fadein_seconds = 0.25f;
+		public static float skull_fadein_seconds = 0.4f;
 		// 配置文件-骷髅头滞留时间
 		public static float skull_stay_seconds = 3.0f;
 		// 配置文件-骷髅头淡出时间
-		public static float skull_fadeout_seconds = 0.5f;
+		public static float skull_fadeout_seconds = 0.3f;
 		// 配置文件-骷髅头间距乘数
 		public static float skull_spacing = 0.0f;
 		// 配置文件-普通骷髅头颜色
 		public static Color skull_color = Color.white;
 		// 配置文件-爆头骷髅头颜色
-		public static Color headshot_skull_color = new Color(1.0f, 0.55f, 0.0f);
+		public static Color headshot_skull_color = new Color(1.0f, 0.55f, 0.0f, 0.85f);
+		// 配置文件-爆头骷髅头圆圈起始放大倍率
+		public static float headshot_ring_init_size_rate = 0.75f;
+		// 配置文件-爆头骷髅头圆圈最大放大倍率
+		public static float headshot_ring_max_size_rate = 6.0f;
+		// 配置文件-爆头骷髅头圆圈的粗线差分精灵图的不透明度的减值
+		public static float headshot_ring_bold_alpha_decrease = 0.4f;
+		// 配置文件-爆头骷髅头圆圈存在持续时间
+		public static float headshot_ring_stay_seconds = 1.0f;
 		// 配置文件-坐标偏移
-		public static Vector2 position_offset = Vector2.zero;
-		// 配置文件-缩放倍率
+		public static Vector2 position_offset = new Vector2(0.0f, -0.2f);
+		// 配置文件-总体缩放倍率
 		public static float scale = 1.0f;
-		// 配置文件-使用BF5音效
-		public static bool use_bf5_sfx = false;
+		// 配置文件-禁用增量缩放
+		public static bool disable_addition_scale = false;
 		// 配置文件-图标在初始化时的尺寸
 		public static float skull_scale_on_drop = 2.0f;
-		public static int skull_id_counter = 0;
+		// 配置文件-禁用击杀文本
+		public static bool disable_text = false;
+		// 配置文件-击杀文本模板
+		public static string text_template = "{0}[{1}]{2}m +{3}";
+		// 配置文件-击杀文本颜色
+		public static Color text_color = new Color(1.0f, 1.0f, 1.0f, 0.85f);
+		// 配置文件-文本坐标偏移率
+		public static Vector2 text_position_offset = new Vector2(0.0f, -0.175f);
+		// 配置文件-文本缩放倍率
+		public static float text_scale = 1.0f;
+		// 配置文件-文本停留时间
+		public static float text_stay_seconds = 2.0f;
+		// 配置文件-同时存储的击杀文本数量
+		public static int text_memory_length = 30;
+		// 配置文件-文本淡入淡出时间
+		public static float text_fade_seconds = 0.25f;
+		// 配置文件-禁用分数
+		public static bool disable_score = false;
+		// 配置文件-分数文本颜色
+		public static Color score_color = new Color(1.0f, 1.0f, 1.0f, 0.85f);
+		// 配置文件-分数文本坐标偏移
+		public static Vector2 score_text_position_offset = new Vector2(0.0f, -0.3f);
+		// 配置文件-分数缩放倍率
+		public static float score_scale = 2.5f;
+		// 配置文件-分数文本数字增加速度(每秒)
+		public static int score_text_number_increase_per_second = 200;
+		// 配置文件-分数文本在消失前的等待时间
+		public static float score_text_stay_seconds = 7.0f;
 		public static List<ISkull> skulls = new List<ISkull>();
 		public static System.Random random = new System.Random(System.DateTime.Now.Second);
+		public static Dictionary<string, int> kill_counter = new Dictionary<string, int>(); //击杀计数器，记录当前局内各种敌人都杀了几次
+		public static string last_scene_name = "";
 		private void Update()
 		{
-			//UnityEngine.Debug.Log(" ");
-			//UnityEngine.Debug.Log("======NEW FRAME======");
+			if (ui_text_transform != null && ui_text != null && ui_score_transform != null && ui_score != null)
+			{
+				KillTextHandler.Update(Time.time, ui_text_transform, ui_text, ui_score_transform, ui_score);
+			}
 			List<int> skulls_want_destroy = new List<int>();
 			float total_width = 0.0f;
 			for (int i = 0; i < skulls.Count; i++)
 			{
-				//UnityEngine.Debug.Log("MB: call skull update alpha, index=" + i.ToString());
 				skulls[i].UpdateAlpha(Time.time);
 				total_width += skulls[i].EffectWidth;
 			}
 			for (int i = 0; i < skulls.Count; i++)
 			{
-				//UnityEngine.Debug.Log("MB: call skull update position, index=" + i.ToString());
 				skulls[i].UpdatePosition(Time.time, total_width, i);
 				if (skulls[i].WantDestroy)
 				{
@@ -121,7 +188,6 @@ namespace BFKillFeedback
 				skulls[skulls_want_destroy[i]].Destroy();
 				skulls.RemoveAt(skulls_want_destroy[i]);
 			}
-			//UnityEngine.Debug.Log("=====================");
 		}
 		public void OnDead(Health health, DamageInfo damageInfo)
 		{
@@ -130,15 +196,32 @@ namespace BFKillFeedback
 			{
 				return;
 			}
+			// 如果死掉的是玩家
+			if (health.IsMainCharacterHealth)
+			{
+				if (AudiosDeath.Count > 0)
+				{
+					RuntimeManager.GetBus("bus:/Master/SFX").getChannelGroup(out ChannelGroup channelgroup);
+					RuntimeManager.CoreSystem.playSound(AudiosDeath[random.Next(0, AudiosDeath.Count)], channelgroup, false, out Channel channel);
+					channel.setVolume(volume);
+				}
+				return;
+			}
 			// 如果伤害来自玩家队
 			if (damageInfo.fromCharacter.Team == Teams.player)
 			{
 				bool headshot = damageInfo.crit > 0;
 				bool oneshotkill = damageInfo.finalDamage >= health.MaxHealth * 0.9f;
-				PlayKill(headshot, oneshotkill);
+				PlayKill(headshot, oneshotkill, damageInfo.fromCharacter.GetMeleeWeapon() != null, damageInfo.isExplosion);
+				if (damageInfo.toDamageReceiver.health.TryGetCharacter() != null)
+				{
+					string killed_enemy_name = damageInfo.toDamageReceiver.health.TryGetCharacter().characterPreset.DisplayName;
+					int killed_count = AddNewKillToCounter(killed_enemy_name);
+					KillTextHandler.NewKill(new KillTextHandler.KillData(killed_enemy_name, ItemAssetsCollection.GetMetaData(damageInfo.fromWeaponItemID).DisplayName, ((Item)(typeof(Health).GetField("item", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.GetField).GetValue(health))).GetInt("Exp", 114514), Vector3.Distance(damageInfo.fromCharacter.modelRoot.position, damageInfo.toDamageReceiver.health.TryGetCharacter().modelRoot.position), killed_count));
+				}
 			}
 		}
-		public void PlayKill(bool headshot, bool use_bf5_sfx)
+		public void PlayKill(bool crit, bool oneshotkill, bool melee_kill, bool explosion_kill)
 		{
 			if (ui_transform == null)
 			{
@@ -146,39 +229,124 @@ namespace BFKillFeedback
 			}
 			else
 			{
-				ui_transform.localPosition = Vector3.zero;
+				float addition_scale = Math.Min(BaseResolution.x / ui_transform.parent.position.x / 2.0f, BaseResolution.y / ui_transform.parent.position.y / 2.0f);
+				if (disable_addition_scale)
+				{
+					addition_scale = 1.0f;
+				}
+				ui_transform.localPosition = new Vector3(position_offset.x * ui_transform.parent.position.x, position_offset.y * ui_transform.parent.position.y);
+				ui_transform.localScale = new Vector3(scale * addition_scale, scale * addition_scale);
 			}
 			// 确定使用的资源
-			Sound audio;
-			string audio_key = "bf";
-			if (use_bf5_sfx)
+			Sound audio = new Sound();
+			bool audio_set = false;
+			if (explosion_kill) //爆炸
 			{
-				audio_key += "5_";
+				if (oneshotkill)
+				{
+					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotExplosionKill, AudiosExplosionKill, AudiosKill });
+				}
+				else
+				{
+					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosExplosionKill, AudiosKill });
+				}
 			}
-			else
+			if (melee_kill && !audio_set) //近战
 			{
-				audio_key += "1_";
+				if (oneshotkill)
+				{
+					if (crit)
+					{
+						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotMeleeKill, AudiosCritMeleeKill, AudiosMeleeKill, AudiosKill });
+					}
+					else
+					{
+						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotMeleeKill, AudiosMeleeKill, AudiosKill });
+					}
+				}
+				else
+				{
+					if (crit)
+					{
+						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosCritMeleeKill, AudiosMeleeKill, AudiosKill });
+					}
+					else
+					{
+						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosMeleeKill, AudiosKill });
+					}
+				}
 			}
-			if (headshot)
+			if (!audio_set) //枪械
+			{
+				if (oneshotkill)
+				{
+					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotHeadKill, AudiosHeadKill, AudiosKill });
+				}
+				else if (crit)
+				{
+					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosHeadKill, AudiosKill });
+				}
+				else
+				{
+					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosKill });
+				}
+			}
+			if (audio_set)
+			{
+				RuntimeManager.GetBus("bus:/Master/SFX").getChannelGroup(out ChannelGroup channel_group);
+				RuntimeManager.CoreSystem.playSound(audio, channel_group, false, out Channel channel);
+				channel.setVolume(volume);
+			}
+			// 图标
+			if (crit && !explosion_kill)
 			{
 				//爆头
-				audio_key += "headkill_" + random.Next(0, 4).ToString();
-				
+				if (skulls.Count < enforce_max_skull_count)
+				{
+					int overcount = Math.Clamp(skulls.Count - max_skull_count, 0, 114514);
+					for (int i = 0; i < overcount; i++)
+					{
+						int i_anti = skulls.Count - i - 1;
+						skulls[i_anti].DisappearRightNow();
+					}
+					SkullHeadshot.Create(out GameObject skull_game_object, out ISkull skull);
+					skull_game_object.transform.SetParent(ui_transform);
+					skulls.Insert(0, skull);
+				}
 			}
 			else
 			{
 				//普通
-				audio_key += "kill";
-				SkullNormal.Create(out GameObject gameObject, out ISkull skull, skull_id_counter);
-				skull_id_counter++;
-				gameObject.transform.SetParent(ui_transform);
-				skulls.Insert(0, skull);
+				if (skulls.Count < enforce_max_skull_count)
+				{
+					int overcount = Math.Clamp(skulls.Count - max_skull_count, 0, 114514);
+					for (int i = 0; i < overcount; i++)
+					{
+						int i_anti = skulls.Count - i - 1;
+						skulls[i_anti].DisappearRightNow();
+					}
+					SkullNormal.Create(out GameObject skull_game_object, out ISkull skull);
+					skull_game_object.transform.SetParent(ui_transform);
+					skulls.Insert(0, skull);
+				}
 			}
-			audio = Audios[audio_key];
-			// 应用资源
-			RuntimeManager.GetBus("bus:/Master/SFX").getChannelGroup(out ChannelGroup channel_group);
-			RuntimeManager.CoreSystem.playSound(audio, channel_group, false, out Channel channel);
-			channel.setVolume(volume);
+		}
+		public static bool SoundChooser(out Sound sound, List<List<Sound>> source_list_and_fallbacks)
+		{
+			sound = new Sound();
+			if (!(source_list_and_fallbacks != null && source_list_and_fallbacks.Count > 0))
+			{
+				return false;
+			}
+			for (int i = 0; i < source_list_and_fallbacks.Count; i++)
+			{
+				if (source_list_and_fallbacks[i] != null && source_list_and_fallbacks[i].Count > 0)
+				{
+					sound = source_list_and_fallbacks[i][random.Next(0, source_list_and_fallbacks[i].Count)];
+					return true;
+				}
+			}
+			return false;
 		}
 		private void Awake()
 		{
@@ -187,11 +355,11 @@ namespace BFKillFeedback
 			{
 				return;
 			}
-			if (LoadRes())
+			LoadConfig();
+			if (LoadImage() && LoadSounds(sfx_namespace))
 			{
 				UnityEngine.Debug.Log("BFKillFeedback: 已载入/Loaded");
 				Loaded = true;
-
 			}
 			else
 			{
@@ -201,8 +369,46 @@ namespace BFKillFeedback
 		private void OnEnable()
 		{
 			Health.OnDead += OnDead;
+			SceneLoader.onStartedLoadingScene += OnSceneLoading;
+			LoadConfig();
+		}
+		private void OnDisable()
+		{
+			Health.OnDead -= OnDead;
+		}
+		private void OnDestroy()
+		{
+			if (ui_transform != null)
+			{
+				UnityEngine.Object.Destroy(ui_transform.gameObject);
+			}
+		}
+		public static void OnSceneLoading(SceneLoadingContext content)
+		{
+			if (content.sceneName != "Base")
+			{
+				ClearKillCounter();
+			}
+			last_scene_name = content.sceneName;
+		}
+		public static void ClearKillCounter()
+		{
+			kill_counter.Clear();
+		}
+		public static int AddNewKillToCounter(string enemy_name)
+		{
+			if (kill_counter.ContainsKey(enemy_name))
+			{
+				kill_counter[enemy_name] += 1;
+				return kill_counter[enemy_name];
+			}
+			kill_counter.Add(enemy_name, 1);
+			return kill_counter[enemy_name];
+		}
+		public void LoadConfig()
+		{
 			// 读取或创建配置文件
-			string config_path = Path.Combine(Application.streamingAssetsPath, "BFKillFeedback.cfg");
+			string config_path = Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "config.json");
 			if (File.Exists(config_path))
 			{
 				string config_content = File.ReadAllText(config_path);
@@ -211,14 +417,14 @@ namespace BFKillFeedback
 				{
 					foreach (JProperty property in config_parsed.Properties())
 					{
+						if (property.Name == "use_sfx_namespace" && property.Value.Type == JTokenType.String)
+						{
+							sfx_namespace = property.Value.ToString();
+							continue;
+						}
 						if (property.Name == "volume" && property.Value.Type == JTokenType.Float)
 						{
 							volume = (float)property.Value;
-							continue;
-						}
-						if (property.Name == "alpha" && property.Value.Type == JTokenType.Float)
-						{
-							alpha = (float)property.Value;
 							continue;
 						}
 						if (property.Name == "max_skull_count" && property.Value.Type == JTokenType.Integer)
@@ -259,12 +465,13 @@ namespace BFKillFeedback
 						if (property.Name == "skull_color" && property.Value.Type == JTokenType.String)
 						{
 							string value = property.Value.ToString();
-							if (value.Length == 6)
+							if (value.Length == 8)
 							{
 								short r = Convert.ToInt16(value[..2], 16);
 								short g = Convert.ToInt16(value.Substring(2, 2), 16);
 								short b = Convert.ToInt16(value.Substring(4, 2), 16);
-								skull_color = new Color((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f);
+								short a = Convert.ToInt16(value.Substring(6, 2), 16);
+								skull_color = new Color((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, (float)a / 255.0f);
 							}
 							continue;
 						}
@@ -276,8 +483,29 @@ namespace BFKillFeedback
 								short r = Convert.ToInt16(value[..2], 16);
 								short g = Convert.ToInt16(value.Substring(2, 2), 16);
 								short b = Convert.ToInt16(value.Substring(4, 2), 16);
-								headshot_skull_color = new Color((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f);
+								short a = Convert.ToInt16(value.Substring(6, 2), 16);
+								headshot_skull_color = new Color((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, (float)a / 255.0f);
 							}
+							continue;
+						}
+						if (property.Name == "headshot_ring_init_size_rate" && property.Value.Type == JTokenType.Float)
+						{
+							headshot_ring_init_size_rate = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "headshot_ring_max_size_rate" && property.Value.Type == JTokenType.Float)
+						{
+							headshot_ring_max_size_rate = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "headshot_ring_bold_alpha_decrease" && property.Value.Type == JTokenType.Float)
+						{
+							headshot_ring_bold_alpha_decrease = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "headshot_ring_stay_seconds" && property.Value.Type == JTokenType.Float)
+						{
+							headshot_ring_stay_seconds = (float)property.Value;
 							continue;
 						}
 						if (property.Name == "position_offset_x" && property.Value.Type == JTokenType.Float)
@@ -295,6 +523,112 @@ namespace BFKillFeedback
 							scale = (float)property.Value;
 							continue;
 						}
+						if (property.Name == "disable_addition_scale" && property.Value.Type == JTokenType.Boolean)
+						{
+							disable_addition_scale = (bool)property.Value;
+							continue;
+						}
+						if (property.Name == "skull_scale_on_drop" && property.Value.Type == JTokenType.Float)
+						{
+							skull_scale_on_drop = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "disable_text" && property.Value.Type == JTokenType.Boolean)
+						{
+							disable_text = (bool)property.Value;
+							continue;
+						}
+						if (property.Name == "text_color" && property.Value.Type == JTokenType.String)
+						{
+							string value = property.Value.ToString();
+							if (value.Length == 6)
+							{
+								short r = Convert.ToInt16(value[..2], 16);
+								short g = Convert.ToInt16(value.Substring(2, 2), 16);
+								short b = Convert.ToInt16(value.Substring(4, 2), 16);
+								short a = Convert.ToInt16(value.Substring(6, 2), 16);
+								text_color = new Color((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, (float)a / 255.0f);
+							}
+							continue;
+						}
+						if (property.Name == "text_position_offset_x" && property.Value.Type == JTokenType.Float)
+						{
+							text_position_offset.x = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "text_position_offset_y" && property.Value.Type == JTokenType.Float)
+						{
+							text_position_offset.y = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "text_scale" && property.Value.Type == JTokenType.Float)
+						{
+							text_scale = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "text_template" && property.Value.Type == JTokenType.String)
+						{
+							text_template = property.Value.ToString();
+							continue;
+						}
+						if (property.Name == "text_stay_seconds" && property.Value.Type == JTokenType.Float)
+						{
+							text_stay_seconds = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "text_memory_length" && property.Value.Type == JTokenType.Integer)
+						{
+							text_memory_length = (int)property.Value;
+							continue;
+						}
+						if (property.Name == "text_fade_seconds" && property.Value.Type == JTokenType.Float)
+						{
+							text_fade_seconds = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "disable_score" && property.Value.Type == JTokenType.Boolean)
+						{
+							disable_score = (bool)property.Value;
+							continue;
+						}
+						if (property.Name == "score_color" && property.Value.Type == JTokenType.String)
+						{
+							string value = property.Value.ToString();
+							if (value.Length == 6)
+							{
+								short r = Convert.ToInt16(value[..2], 16);
+								short g = Convert.ToInt16(value.Substring(2, 2), 16);
+								short b = Convert.ToInt16(value.Substring(4, 2), 16);
+								short a = Convert.ToInt16(value.Substring(6, 2), 16);
+								score_color = new Color((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, (float)a / 255.0f);
+							}
+							continue;
+						}
+						if (property.Name == "score_text_position_offset_x" && property.Value.Type == JTokenType.Float)
+						{
+							score_text_position_offset.x = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "score_text_position_offset_y" && property.Value.Type == JTokenType.Float)
+						{
+							score_text_position_offset.y = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "score_scale" && property.Value.Type == JTokenType.Float)
+						{
+							score_scale = (float)property.Value;
+							continue;
+						}
+						if (property.Name == "score_text_number_increase_per_second" && property.Value.Type == JTokenType.Integer)
+						{
+							score_text_number_increase_per_second = (int)property.Value;
+							continue;
+						}
+						if (property.Name == "score_text_stay_seconds" && property.Value.Type == JTokenType.Float)
+						{
+							score_text_stay_seconds = (float)property.Value;
+							continue;
+						}
 					}
 				}
 				else
@@ -307,94 +641,111 @@ namespace BFKillFeedback
 				File.WriteAllText(config_path, Newtonsoft.Json.JsonConvert.SerializeObject(DefaultConfig, Formatting.Indented));
 			}
 		}
-		private void OnDisable()
-		{
-			Health.OnDead -= OnDead;
-		}
-		private void OnDestroy()
-		{
-			if (ui_transform != null)
-			{
-				UnityEngine.Object.Destroy(ui_transform.gameObject);
-			}
-		}
 		// 加载资源方法，返回成功与否
-		public bool LoadRes()
+		public bool LoadImage()
 		{
-			UnityEngine.Debug.Log("BFKillFeedback: 开始加载资源/Starting loading resources");
+			GameObject preloader = new GameObject("preloader");
+			Image preloader_image = preloader.AddComponent<Image>();
+			UnityEngine.Debug.Log("BFKillFeedback: 开始加载图像资源/Starting loading image resources");
+			string dll_dir = Path.Combine(Utils.GetDllDirectory(), "Icons");
+			string exe_dir = Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "Icons");
+			Directory.CreateDirectory(exe_dir);
 			bool success = true;
-			string absolute_path = Utils.GetDllDirectory();
-			UnityEngine.Debug.Log("BFKillFeedback: Absolute path = " + absolute_path);
 			UnityEngine.Debug.Log("BFKillFeedback: 正在遍历图像名称列表/Foreaching ImageNames list");
 			foreach (string image_name in ImageNames)
 			{
-				string this_path = Path.Combine(absolute_path, image_name + ".png");
-				UnityEngine.Debug.Log("BFKillFeedback: Now path is " + this_path);
-				if (!File.Exists(this_path))
+				byte[] icon_bytes;
+				Texture2D icon_texture;
+				string dll_path = Path.Combine(dll_dir, image_name + ".png");
+				string exe_path = Path.Combine(exe_dir, image_name + ".png");
+				UnityEngine.Debug.Log("BFKillFeedback: Now path is " + dll_path);
+				if (File.Exists(exe_path))
 				{
-					UnityEngine.Debug.LogError("BFKillFeedback: 文件不存在 = " + this_path);
+					icon_bytes = File.ReadAllBytes(dll_path);
+					icon_texture = new Texture2D(2560, 2560);
+					if (icon_texture.LoadImage(icon_bytes))
+					{
+						Images.TryAdd(image_name, Sprite.Create(icon_texture, new Rect(0.0f, 0.0f, icon_texture.width, icon_texture.height), new Vector2(icon_texture.width / 2.0f, icon_texture.height / 2.0f)));
+						preloader_image.sprite = Images[image_name];
+						success = success && true;
+						UnityEngine.Debug.Log("BFKillFeedback: 覆盖纹理加载成功 = " + dll_path);
+						continue;
+					}
+					UnityEngine.Debug.LogError("BFKillFeedback: 加载覆盖纹理失败/Failed to load texture = " + dll_path);
+					UnityEngine.Debug.LogError("BFKillFeedback: 将尝试回退到原版纹理/Trying to fallback");
+					if (!File.Exists(dll_path))
+					{
+						UnityEngine.Debug.LogError("BFKillFeedback: 文件不存在 = " + dll_path);
+						success = false;
+						continue;
+					}
+					icon_bytes = File.ReadAllBytes(dll_path);
+					icon_texture = new Texture2D(2560, 2560);
+					if (icon_texture.LoadImage(icon_bytes))
+					{
+						Images.TryAdd(image_name, Sprite.Create(icon_texture, new Rect(0.0f, 0.0f, icon_texture.width, icon_texture.height), new Vector2(icon_texture.width / 2.0f, icon_texture.height / 2.0f)));
+						preloader_image.sprite = Images[image_name];
+						success = success && true;
+						UnityEngine.Debug.Log("BFKillFeedback: 回退纹理加载成功 = " + dll_path);
+						continue;
+					}
+				}
+				else if (!File.Exists(dll_path))
+				{
+					UnityEngine.Debug.LogError("BFKillFeedback: 文件不存在 = " + dll_path);
 					success = false;
 					continue;
 				}
-				byte[] icon_bytes = File.ReadAllBytes(this_path);
-				Texture2D icon_texture = new Texture2D(256, 256);
+				icon_bytes = File.ReadAllBytes(dll_path);
+				icon_texture = new Texture2D(2560, 2560);
 				if (icon_texture.LoadImage(icon_bytes))
 				{
-					Images.TryAdd(image_name, icon_texture);
+					Images.TryAdd(image_name, Sprite.Create(icon_texture, new Rect(0.0f, 0.0f, icon_texture.width, icon_texture.height), new Vector2(icon_texture.width / 2.0f, icon_texture.height / 2.0f)));
+					preloader_image.sprite = Images[image_name];
 					success = success && true;
-					UnityEngine.Debug.Log("BFKillFeedback: 纹理加载成功 = " + this_path);
+					UnityEngine.Debug.Log("BFKillFeedback: 纹理加载成功 = " + dll_path);
 					continue;
 				}
 				success = false;
-				UnityEngine.Debug.LogError("BFKillFeedback: 加载纹理失败/Failed to load texture = " + this_path);
+				UnityEngine.Debug.LogError("BFKillFeedback: 加载纹理失败/Failed to load texture = " + dll_path);
 			}
-			UnityEngine.Debug.Log("BFKillFeedback: 正在遍历音频名称列表/Foreaching AudioNames list");
-			foreach (string audio_name in AudioNames)
-			{
-				string this_path = Path.Combine(absolute_path, audio_name + ".wav");
-				UnityEngine.Debug.Log("BFKillFeedback: Now path is " + this_path);
-				if (!File.Exists(this_path))
-				{
-					UnityEngine.Debug.LogError("BFKillFeedback: 文件不存在 = " + this_path);
-					success = false;
-					continue;
-				}
-				RESULT fmod_create_result = RuntimeManager.CoreSystem.createSound(this_path, MODE.LOOP_OFF, out Sound sound);
-				if (fmod_create_result == RESULT.OK)
-				{
-					Audios.TryAdd(audio_name, sound);
-					success = success && true;
-					UnityEngine.Debug.Log("BFKillFeedback: 成功加载音频 = " + this_path);
-				}
-				else
-				{
-					UnityEngine.Debug.LogError("BFKillFeedback: 加载音频时出错 = " + fmod_create_result.ToString());
-					success = false;
-				}
-			}
-			//加载资源覆盖
-			string config_path = Path.Combine(Application.streamingAssetsPath, "BFKillFeedback");
-			if (Directory.Exists(config_path)) {
-				string[] files = Directory.GetFiles(config_path);
-				foreach (string file in files){
-					if (Audios.ContainsKey(Path.GetFileNameWithoutExtension(file))){
-						
-					}
-				}
-			}
+			UnityEngine.Object.Destroy(preloader);
 			return success;
 		}
-		public static bool LoadSound(string path, string audio_name)
+		public static bool LoadSounds(string the_namespace)
 		{
-			RESULT fmod_result = RuntimeManager.CoreSystem.createSound(path, MODE.LOOP_OFF, out Sound sound);
-			if (fmod_result == RESULT.OK)
-			{
-				Audios.TryAdd(audio_name, sound);
-				UnityEngine.Debug.Log("BFKillFeedback: 成功加载音频 = " + path);
-				return true;
-			}
-			UnityEngine.Debug.LogError("BFKillFeedback: 加载音频时出错 = " + fmod_result.ToString());
-			return false;
+			bool success = true;
+			UnityEngine.Debug.Log("BFKillFeedback: 开始从命名空间" + the_namespace + "加载音频/Start to load audios from namespace " + the_namespace);
+			string dll_dir = Path.Combine(Utils.GetDllDirectory(), "AudioNamespaces", the_namespace);
+			string exe_dir = Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "AudioNamespaces", the_namespace);
+			Directory.CreateDirectory(exe_dir);
+			AudiosKill.Clear();
+			AudiosHeadKill.Clear();
+			AudiosOneshotHeadKill.Clear();
+			AudiosMeleeKill.Clear();
+			AudiosCritMeleeKill.Clear();
+			AudiosOneshotMeleeKill.Clear();
+			AudiosExplosionKill.Clear();
+			AudiosOneshotExplosionKill.Clear();
+			//加载玩家自己死亡 无法回退
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "death_", ".wav", ref AudiosDeath);
+			//加载普通击杀 无法回退
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "kill_", ".wav", ref AudiosKill);
+			//加载爆头击杀 回退到 普通击杀
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "headkill_", ".wav", ref AudiosHeadKill);
+			//加载一发秒爆头击杀 回退到 爆头击杀
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "oneshotheadkill_", ".wav", ref AudiosOneshotHeadKill);
+			//加载近战击杀 回退到 普通击杀
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "meleekill_", ".wav", ref AudiosMeleeKill);
+			//加载暴击近战击杀 回退到 近战击杀
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "critmeleekill_", ".wav", ref AudiosCritMeleeKill);
+			//加载一发秒近战击杀 回退到 暴击近战击杀 或 近战击杀(无暴击时)
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "onemeleekill_", ".wav", ref AudiosOneshotMeleeKill);
+			//加载爆炸击杀 回退到 普通击杀
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "explosionkill_", ".wav", ref AudiosExplosionKill);
+			//加载一发秒爆炸击杀 回退到 爆炸击杀
+			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "oneexplosionkill_", ".wav", ref AudiosOneshotExplosionKill);
+			return success;
 		}
 		// 创建UI
 		public void CreateUI()
@@ -408,6 +759,18 @@ namespace BFKillFeedback
 			ui_transform = game_object.AddComponent<RectTransform>();
 			ui_transform.SetParent(hud_manager.transform);
 			ui_transform.localPosition = Vector3.zero;
+			GameObject text_game_object = new GameObject("Text");
+			ui_text_transform = text_game_object.AddComponent<RectTransform>();
+			ui_text_transform.SetParent(ui_transform);
+			ui_text_transform.localPosition = Vector3.zero;
+			ui_text = text_game_object.AddComponent<TextMeshProUGUI>();
+			ui_text.alignment = TextAlignmentOptions.Center;
+			GameObject score_game_object = new GameObject("Score");
+			ui_score_transform = score_game_object.AddComponent<RectTransform>();
+			ui_score_transform.SetParent(ui_transform);
+			ui_score_transform.localPosition = Vector3.zero;
+			ui_score = score_game_object.AddComponent<TextMeshProUGUI>();
+			ui_score.alignment = TextAlignmentOptions.Center;
 			UnityEngine.Debug.Log("BFKillFeedback: 已创建UI/UI created");
 		}
 	}

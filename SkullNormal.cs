@@ -10,13 +10,6 @@ namespace BFKillFeedback
 {
 	public class SkullNormal : ISkull
 	{
-		public int ID
-		{
-			get
-			{
-				return id;
-			}
-		}
 		public bool WantDestroy
 		{
 			get
@@ -63,49 +56,49 @@ namespace BFKillFeedback
 				effect_width = value;
 			}
 		}
-		public int id;
 		public bool want_destroy = false;
 		public float spawn_time;
 		public GameObject? game_object;
 		public float effect_width; //用于在淡入淡出过程中改变自身的被用于所有骷髅头位置计算的宽度数值，使得所有骷髅头得以自如地计算位置
 		RectTransform? rect_transform;
-		CanvasGroup? canvas_group;
 		Image? skull_image;
 		public void UpdateAlpha(float now_time)
 		{
 			float delta = now_time - SpawnTime;
-			//UnityEngine.Debug.Log("SN: delta = " + delta.ToString() + ", spawnTime=" + SpawnTime);
 			float process;
+			float process_width;
 			float scale = 1.0f;
 			if (delta < ModBehaviour.skull_fadein_seconds)
 			{
 				//淡入
 				process = Math.Clamp(delta / ModBehaviour.skull_fadein_seconds, 0.0f, 1.0f);
+				process_width = process;
 				scale = ModBehaviour.skull_scale_on_drop / Math.Clamp(process * ModBehaviour.skull_scale_on_drop, 1.0f, ModBehaviour.skull_scale_on_drop);
 			}
 			else if (delta > (ModBehaviour.skull_fadein_seconds + ModBehaviour.skull_spacing))
 			{
 				//淡出
 				process = 1.0f - Math.Clamp((delta - ModBehaviour.skull_fadein_seconds - ModBehaviour.skull_stay_seconds) / ModBehaviour.skull_fadeout_seconds, 0.0f, 1.0f);
+				process_width = 1.0f - Math.Clamp((delta - ModBehaviour.skull_fadein_seconds - ModBehaviour.skull_stay_seconds - ModBehaviour.skull_fadeout_seconds) / ModBehaviour.skull_fadein_seconds, 0.0f, 1.0f);
 			}
 			else
 			{
 				//留置
 				process = 1.0f;
+				process_width = 1.0f;
 			}
 			// 不透明度计算
-			if (canvas_group != null)
+			if (skull_image != null)
 			{
-				canvas_group.alpha = ModBehaviour.alpha * process;
-				if (delta > (ModBehaviour.skull_fadein_seconds + ModBehaviour.skull_stay_seconds + ModBehaviour.skull_fadeout_seconds))
+				skull_image.color = new Color(skull_image.color.r, skull_image.color.g, skull_image.color.b, ModBehaviour.skull_color.a * process);
+				if (delta > (2.0f * ModBehaviour.skull_fadein_seconds + ModBehaviour.skull_stay_seconds + ModBehaviour.skull_fadeout_seconds))
 				{
-					//UnityEngine.Debug.Log("SN: " + delta.ToString() + " want destroy");
 					want_destroy = true;
 				}
 			}
 			if (rect_transform != null && skull_image != null)
 			{
-				effect_width = rect_transform.rect.width * process * (1.0f + ModBehaviour.skull_spacing * 2.0f);
+				effect_width = rect_transform.rect.width * process_width * (1.0f + ModBehaviour.skull_spacing * 2.0f);
 				rect_transform.localScale = new Vector3(scale, scale);
 			}
 		}
@@ -123,29 +116,26 @@ namespace BFKillFeedback
 				rect_transform.localPosition = new Vector3(left_side_width - total_width / 2.0f, 0.0f, 0.0f);
 			}
 		}
-		public static bool Create(out GameObject gameObject, out ISkull skull, int new_id)
+		public static bool Create(out GameObject game_object, out ISkull skull)
 		{
-			gameObject = new GameObject("SkullNormal");
-			SkullNormal skull_normal = new SkullNormal(Time.time, gameObject, new_id)
+			game_object = new GameObject("SkullNormal");
+			SkullNormal skull_normal = new SkullNormal(Time.time, game_object)
 			{
-				rect_transform = gameObject.AddComponent<RectTransform>(),
-				canvas_group = gameObject.AddComponent<CanvasGroup>(),
-				skull_image = gameObject.AddComponent<Image>()
+				rect_transform = game_object.AddComponent<RectTransform>(),
+				skull_image = game_object.AddComponent<Image>()
 			};
 			skull_normal.skull_image.color = ModBehaviour.skull_color;
 			skull = skull_normal;
 			if (ModBehaviour.ImageNames.Contains("kill"))
 			{
-				Texture2D texture = ModBehaviour.Images["kill"];
-				skull_normal.skull_image.sprite = Sprite.Create(texture, new Rect(0.0f, 0.0f, texture.width, texture.height), new Vector2(texture.width / 2.0f, texture.height / 2.0f));
+				skull_normal.skull_image.sprite = ModBehaviour.Images["kill"];
 				skull_normal.skull_image.type = Image.Type.Simple;
 			}
 			else
 			{
-				//UnityEngine.Debug.LogError("BFKillFeedback: 缺少需要使用的图像资源/Missing needed image resource");
+				UnityEngine.Debug.LogError("BFKillFeedback: 缺少需要使用的图像资源/Missing needed image resource");
 				return false;
 			}
-			//UnityEngine.Debug.Log("BFKillFeedback: 已创建新骷髅头实例/New skull instantiated");
 			return true;
 		}
 		public void Destroy()
@@ -163,11 +153,10 @@ namespace BFKillFeedback
 				SpawnTime = Time.time - ModBehaviour.skull_fadein_seconds - ModBehaviour.skull_stay_seconds;
 			}
 		}
-		public SkullNormal(float new_spawn_time, GameObject new_game_object, int new_id)
+		public SkullNormal(float new_spawn_time, GameObject new_game_object)
 		{
 			spawn_time = new_spawn_time;
 			game_object = new_game_object;
-			id = new_id;
 		}
 	}
 }

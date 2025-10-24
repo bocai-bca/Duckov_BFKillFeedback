@@ -8,10 +8,6 @@ namespace BFKillFeedback
 {
 	public interface ISkull
 	{
-		public int ID
-		{
-			get;
-		}
 		public bool WantDestroy
 		{
 			get; set;
