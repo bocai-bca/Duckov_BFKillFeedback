@@ -7,9 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using TMPro;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace BFKillFeedback
