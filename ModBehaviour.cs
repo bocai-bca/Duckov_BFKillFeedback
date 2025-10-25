@@ -462,6 +462,7 @@ namespace BFKillFeedback
 		public void LoadConfig()
 		{
 			// 读取或创建配置文件
+			Directory.CreateDirectory(Path.Combine(Application.streamingAssetsPath, "BFKillFeedback"));
 			string config_path = Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "config.json");
 			if (File.Exists(config_path))
 			{
@@ -697,7 +698,7 @@ namespace BFKillFeedback
 			}
 			else
 			{
-				File.WriteAllText(config_path, Newtonsoft.Json.JsonConvert.SerializeObject(DefaultConfig, Formatting.Indented));
+				File.WriteAllText(config_path, JsonConvert.SerializeObject(DefaultConfig, Formatting.Indented));
 			}
 		}
 		public void InjectModConfig()
@@ -706,6 +707,15 @@ namespace BFKillFeedback
 			foreach (string dir in Directory.GetDirectories(Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "AudioNamespaces")))
 			{
 				string name = Path.GetFileName(dir);
+				namespaces.Add(name, name);
+			}
+			foreach (string dir in Directory.GetDirectories(Path.Combine(Utils.GetDllDirectory(), "AudioNamespaces")))
+			{
+				string name = Path.GetFileName(dir);
+				if (namespaces.ContainsKey(name))
+				{
+					continue;
+				}
 				namespaces.Add(name, name);
 			}
 			ModConfigAPI.SafeAddInputWithSlider(MOD_NAME, "volume", Localization.Tr("settings.volume"), typeof(float), 0.6f, new Vector2(0.0f, 1.0f));
