@@ -16,6 +16,7 @@ namespace BFKillFeedback
 {
 	public class ModBehaviour : Duckov.Modding.ModBehaviour
 	{
+		public const string MOD_NAME = "BFKillFeedback";
 		public readonly static Vector2 BaseResolution = new Vector2(1920.0f, 1080.0f);
 		public static bool Loaded = false;
 		public static Dictionary<string, object> DefaultConfig = new Dictionary<string, object>(){
@@ -35,9 +36,9 @@ namespace BFKillFeedback
 			{"headshot_ring_bold_alpha_decrease", 0.4f}, //爆头骷髅头圆圈粗线差分的不透明度减值
 			{"headshot_ring_stay_seconds", 1.0f}, //爆头骷髅头圆圈存在持续时间
 			{"position_offset_x", 0.0f}, //坐标偏移X
-			{"position_offset_y", -0.2f}, //坐标偏移Y
-			{"scale", 1.0f}, //缩放倍率
-			{"disable_addition_scale", false}, //禁用增量缩放，增量缩放是会跟随窗口分辨率变化的缩放功能
+			{"position_offset_y", -0.6f}, //坐标偏移Y
+			{"scale", 0.6f}, //缩放倍率
+			{"addition_scale", false}, //启用增量缩放，增量缩放是会跟随窗口分辨率变化而反向缩放功能
 			{"skull_scale_on_drop", 2.0f}, //图标在初始化时的尺寸乘数，基于正常尺寸，用于图标掉入效果
 			{"disable_text", false}, //禁用击杀文本
 			{"text_template", "{0}#{1}[{2}]{3}m +{4}"}, //击杀文本模板，0=敌人名字，1=击杀计数，2=使用的武器，3=距离，4=加分(经验值)
@@ -55,6 +56,7 @@ namespace BFKillFeedback
 			{"score_scale", 2.5f}, //分数缩放倍率
 			{"score_text_number_increase_per_second", 200}, //分数文本数字增加速度(每秒)
 			{"score_text_stay_seconds", 7.0f}, //分数文本在消失前的等待时间
+			{"hide_reload_progress_bar", true}, //隐藏换弹进度条
 		};
 		public static ModBehaviour? Instance;
 		// 所有图标名称，这些名称将用于拼接成定位图片资源的路径(.png)
@@ -65,16 +67,6 @@ namespace BFKillFeedback
 			"headkill_frame_thin",
 			"headkill_frame_bold"
 		};
-		// 所有音频名称，这些名称将用于拼接成定位音频资源的路径(.wav)
-		/*public static readonly string[] AudioNames = new string[]
-		{
-			"kill_",
-			"headkill_",
-			"oneshotheadkill_",
-			"meleekill_",
-			"critmeleekill_",
-			"explosionkill_",
-		};*/
 		// 从硬盘加载到内存的图片资源
 		public static Dictionary<string, Sprite> Images = new Dictionary<string, Sprite>();
 		// 从硬盘加载到内存的音频资源
@@ -92,10 +84,12 @@ namespace BFKillFeedback
 		public static TextMeshProUGUI? ui_text;
 		public static RectTransform? ui_score_transform;
 		public static TextMeshProUGUI? ui_score;
+		public static ActionProgressHUD? action_process_hud;
+		public static CharacterMainControl? player_character_control;
 		// 配置文件-使用的音效命名空间
 		public static string sfx_namespace = "bf5";
 		// 配置文件-音量，0-1决定音量大小
-		public static float volume = 0.5f;
+		public static float volume = 0.6f;
 		// 配置文件-允许同时存在的最大骷髅头数，超过此数时添加新骷髅头将导致旧骷髅头立即开始消失
 		public static int max_skull_count = 10;
 		// 配置文件-强制允许同时存在的最大骷髅头数，超过此数时击杀敌人不会添加新骷髅头
@@ -123,11 +117,11 @@ namespace BFKillFeedback
 		// 配置文件-爆头骷髅头圆圈存在持续时间
 		public static float headshot_ring_stay_seconds = 1.0f;
 		// 配置文件-坐标偏移
-		public static Vector2 position_offset = new Vector2(0.0f, -0.2f);
+		public static Vector2 position_offset = new Vector2(0.0f, -0.6f);
 		// 配置文件-总体缩放倍率
-		public static float scale = 1.0f;
+		public static float scale = 0.6f;
 		// 配置文件-禁用增量缩放
-		public static bool disable_addition_scale = false;
+		public static bool addition_scale = false;
 		// 配置文件-图标在初始化时的尺寸
 		public static float skull_scale_on_drop = 2.0f;
 		// 配置文件-禁用击杀文本
@@ -158,6 +152,10 @@ namespace BFKillFeedback
 		public static int score_text_number_increase_per_second = 200;
 		// 配置文件-分数文本在消失前的等待时间
 		public static float score_text_stay_seconds = 7.0f;
+		// 配置文件-隐藏换弹进度条
+		public static bool hide_reload_progress_bar = true;
+		public static bool is_last_frame_progressing = false;
+		public static bool is_mod_config_api_usable = false;
 		public static List<ISkull> skulls = new List<ISkull>();
 		public static System.Random random = new System.Random(System.DateTime.Now.Second);
 		public static Dictionary<string, int> kill_counter = new Dictionary<string, int>(); //击杀计数器，记录当前局内各种敌人都杀了几次
@@ -167,6 +165,16 @@ namespace BFKillFeedback
 			if (ui_text_transform != null && ui_text != null && ui_score_transform != null && ui_score != null)
 			{
 				KillTextHandler.Update(Time.time, ui_text_transform, ui_text, ui_score_transform, ui_score);
+			}
+			if (ui_transform != null)
+			{
+				float addition_scale_num = Math.Min(Screen.width / BaseResolution.x, Screen.height / BaseResolution.y);
+				if (!addition_scale)
+				{
+					addition_scale_num = 1.0f;
+				}
+				ui_transform.localPosition = new Vector3(position_offset.x * BaseResolution.x / 2.0f / addition_scale_num, position_offset.y * BaseResolution.y / 2.0f / addition_scale_num);
+				ui_transform.localScale = new Vector3(scale * addition_scale_num, scale * addition_scale_num);
 			}
 			List<int> skulls_want_destroy = new List<int>();
 			float total_width = 0.0f;
@@ -187,6 +195,17 @@ namespace BFKillFeedback
 			{
 				skulls[skulls_want_destroy[i]].Destroy();
 				skulls.RemoveAt(skulls_want_destroy[i]);
+			}
+			if (hide_reload_progress_bar)
+			{
+				if (player_character_control == null)
+				{
+					if (LevelManager.Instance != null && LevelManager.Instance.MainCharacter != null)
+					{
+						player_character_control = LevelManager.Instance.MainCharacter;
+						player_character_control.OnActionStartEvent += OnActionStart;
+					}
+				}
 			}
 		}
 		public void OnDead(Health health, DamageInfo damageInfo)
@@ -226,16 +245,6 @@ namespace BFKillFeedback
 			if (ui_transform == null)
 			{
 				CreateUI();
-			}
-			else
-			{
-				float addition_scale = Math.Min(BaseResolution.x / ui_transform.parent.position.x / 2.0f, BaseResolution.y / ui_transform.parent.position.y / 2.0f);
-				if (disable_addition_scale)
-				{
-					addition_scale = 1.0f;
-				}
-				ui_transform.localPosition = new Vector3(position_offset.x * ui_transform.parent.position.x, position_offset.y * ui_transform.parent.position.y);
-				ui_transform.localScale = new Vector3(scale * addition_scale, scale * addition_scale);
 			}
 			// 确定使用的资源
 			Sound audio = new Sound();
@@ -355,9 +364,17 @@ namespace BFKillFeedback
 			{
 				return;
 			}
+			Localization.LoadLocalization(Path.Combine(Utils.GetDllDirectory(), "Localization"));
 			LoadConfig();
 			if (LoadImage() && LoadSounds(sfx_namespace))
 			{
+				is_mod_config_api_usable = ModConfigAPI.IsAvailable();
+				if (is_mod_config_api_usable)
+				{
+					UnityEngine.Debug.Log("BFKillFeedback: ModConfig可用/ModConfig is available");
+					InjectModConfig();
+					LoadConfigThroughModConfig();
+				}
 				UnityEngine.Debug.Log("BFKillFeedback: 已载入/Loaded");
 				Loaded = true;
 			}
@@ -375,6 +392,10 @@ namespace BFKillFeedback
 		private void OnDisable()
 		{
 			Health.OnDead -= OnDead;
+			if (player_character_control != null)
+			{
+				player_character_control.OnActionStartEvent -= OnActionStart;
+			}
 		}
 		private void OnDestroy()
 		{
@@ -391,6 +412,41 @@ namespace BFKillFeedback
 			}
 			last_scene_name = content.sceneName;
 		}
+
+		public static void OnActionStart(CharacterActionBase action)
+		{
+			UnityEngine.Debug.Log("OnActionStart");
+			if (hide_reload_progress_bar && action is CA_Reload)
+			{
+				// 如果启用了隐藏换弹进度条功能，并且当前捕捉到了换弹动作
+				SetProgressBarVisible(false);
+			}
+			else
+			{
+				SetProgressBarVisible(true);
+			}
+		}
+		public static void SetProgressBarVisible(bool visible)
+		{
+			if (action_process_hud == null)
+			{
+				action_process_hud = UnityEngine.Object.FindObjectOfType<ActionProgressHUD>();
+			}
+			if (action_process_hud == null)
+			{
+				return;
+			}
+			if (visible)
+			{
+				UnityEngine.Debug.Log("Hide progress");
+				action_process_hud.transform.localScale = Vector3.one;
+			}
+			else
+			{
+				action_process_hud.transform.localScale = Vector3.zero;
+			}
+		}
+
 		public static void ClearKillCounter()
 		{
 			kill_counter.Clear();
@@ -523,9 +579,9 @@ namespace BFKillFeedback
 							scale = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "disable_addition_scale" && property.Value.Type == JTokenType.Boolean)
+						if (property.Name == "addition_scale" && property.Value.Type == JTokenType.Boolean)
 						{
-							disable_addition_scale = (bool)property.Value;
+							addition_scale = (bool)property.Value;
 							continue;
 						}
 						if (property.Name == "skull_scale_on_drop" && property.Value.Type == JTokenType.Float)
@@ -629,6 +685,11 @@ namespace BFKillFeedback
 							score_text_stay_seconds = (float)property.Value;
 							continue;
 						}
+						if (property.Name == "hide_reload_progress_bar" && property.Value.Type == JTokenType.Boolean)
+						{
+							hide_reload_progress_bar = (bool)property.Value;
+							continue;
+						}
 					}
 				}
 				else
@@ -639,6 +700,44 @@ namespace BFKillFeedback
 			else
 			{
 				File.WriteAllText(config_path, Newtonsoft.Json.JsonConvert.SerializeObject(DefaultConfig, Formatting.Indented));
+			}
+		}
+		public void InjectModConfig()
+		{
+			SortedDictionary<string, object> namespaces = new SortedDictionary<string, object>();
+			foreach (string dir in Directory.GetDirectories(Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "AudioNamespaces")))
+			{
+				string name = Path.GetFileName(dir);
+				namespaces.Add(name, name);
+			}
+			ModConfigAPI.SafeAddInputWithSlider(MOD_NAME, "volume", Localization.Tr("settings.volume"), typeof(float), 0.6f, new Vector2(0.0f, 1.0f));
+			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "disable_icon", Localization.Tr("settings.disable_icon"), false);
+			ModConfigAPI.SafeAddInputWithSlider(MOD_NAME, "scale", Localization.Tr("settings.scale"), typeof(float), 0.7f, new Vector2(0.0f, 3.0f));
+			ModConfigAPI.SafeAddInputWithSlider(MOD_NAME, "position_offset_x", Localization.Tr("settings.position_offset_x"), typeof(float), 0.0f, new Vector2(-2.0f, 2.0f));
+			ModConfigAPI.SafeAddInputWithSlider(MOD_NAME, "position_offset_y", Localization.Tr("settings.position_offset_y"), typeof(float), -0.6f, new Vector2(-2.0f, 2.0f));
+			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "addition_scale", Localization.Tr("settings.addition_scale"), false);
+			ModConfigAPI.SafeAddDropdownList(MOD_NAME, "use_sfx_namespace", Localization.Tr("settings.use_sfx_namespace"), namespaces, typeof(string), "bf5");
+			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "hide_reload_progress_bar", Localization.Tr("settings.hide_reload_progress_bar"), true);
+			ModConfigAPI.SafeAddOnOptionsChangedDelegate(OnModConfigOptionsChanged);
+		}
+		public void OnModConfigOptionsChanged(string key)
+		{
+			LoadConfigThroughModConfig();
+		}
+		public void LoadConfigThroughModConfig()
+		{
+			volume = ModConfigAPI.SafeLoad<float>(MOD_NAME, "volume", 0.6f);
+			disable_icon = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "disable_icon", false);
+			scale = ModConfigAPI.SafeLoad<float>(MOD_NAME, "scale", 0.7f);
+			position_offset.x = ModConfigAPI.SafeLoad<float>(MOD_NAME, "position_offset_x", 0.0f);
+			position_offset.y = ModConfigAPI.SafeLoad<float>(MOD_NAME, "position_offset_y", -0.2f);
+			addition_scale = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "addition_scale", false);
+			hide_reload_progress_bar = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "hide_reload_progress_bar", true);
+			string new_namespace = ModConfigAPI.SafeLoad<string>(MOD_NAME, "use_sfx_namespace", "bf5");
+			if (new_namespace != sfx_namespace)
+			{
+				sfx_namespace = new_namespace;
+				LoadSounds(sfx_namespace);
 			}
 		}
 		// 加载资源方法，返回成功与否
@@ -758,7 +857,6 @@ namespace BFKillFeedback
 			GameObject game_object = new GameObject("BFKillFeedbackUI");
 			ui_transform = game_object.AddComponent<RectTransform>();
 			ui_transform.SetParent(hud_manager.transform);
-			ui_transform.localPosition = Vector3.zero;
 			GameObject text_game_object = new GameObject("Text");
 			ui_text_transform = text_game_object.AddComponent<RectTransform>();
 			ui_text_transform.SetParent(ui_transform);
