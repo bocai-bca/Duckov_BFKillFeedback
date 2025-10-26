@@ -13,5 +13,6 @@
 	<Reference Include="$(DuckovPath)\Duckov_Data\Managed\FMODUnity.dll" />
 	<Reference Include="$(DuckovPath)\Duckov_Data\Managed\Newtonsoft.Json.dll" />
 	<Reference Include="$(DuckovPath)\Duckov_Data\Managed\SodaLocalization.dll" />
+	<Reference Include="D:\Program Files\Steam\steamapps\workshop\content\3167020\3589088839\0Harmony.dll" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 ﻿using FMOD;
 using FMODUnity;
+using HarmonyLib;
 using ItemStatsSystem;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -14,6 +15,7 @@ namespace BFKillFeedback
 {
 	public class ModBehaviour : Duckov.Modding.ModBehaviour
 	{
+		public static Harmony harmony = new Harmony("net.bcasoft.bfkillfeedback");
 		public const string MOD_NAME = "BFKillFeedback";
 		public readonly static Vector2 BaseResolution = new Vector2(1920.0f, 1080.0f);
 		public static bool Loaded = false;
@@ -55,6 +57,7 @@ namespace BFKillFeedback
 			{"score_text_number_increase_per_second", 200}, //分数文本数字增加速度(每秒)
 			{"score_text_stay_seconds", 7.0f}, //分数文本在消失前的等待时间
 			{"hide_reload_progress_bar", true}, //隐藏换弹进度条
+			{"disable_vanilla_kill_feedback_sound", false} //禁用原版反馈音效
 		};
 		public static ModBehaviour? Instance;
 		// 所有图标名称，这些名称将用于拼接成定位图片资源的路径(.png)
@@ -152,8 +155,9 @@ namespace BFKillFeedback
 		public static float score_text_stay_seconds = 7.0f;
 		// 配置文件-隐藏换弹进度条
 		public static bool hide_reload_progress_bar = true;
+		// 配置文件-禁用原版击杀反馈音效
+		public static bool disable_vanilla_kill_feedback_sound = false;
 		public static bool is_last_frame_progressing = false;
-		public static bool is_mod_config_api_usable = false;
 		public static List<ISkull> skulls = new List<ISkull>();
 		public static System.Random random = new System.Random(System.DateTime.Now.Second);
 		public static Dictionary<string, int> kill_counter = new Dictionary<string, int>(); //击杀计数器，记录当前局内各种敌人都杀了几次
@@ -366,8 +370,7 @@ namespace BFKillFeedback
 			LoadConfig();
 			if (LoadImage() && LoadSounds(sfx_namespace))
 			{
-				is_mod_config_api_usable = ModConfigAPI.IsAvailable();
-				if (is_mod_config_api_usable)
+				if (ModConfigAPI.IsAvailable())
 				{
 					UnityEngine.Debug.Log("BFKillFeedback: ModConfig可用/ModConfig is available");
 					InjectModConfig();
@@ -383,12 +386,18 @@ namespace BFKillFeedback
 		}
 		private void OnEnable()
 		{
+			harmony.PatchAll();
 			Health.OnDead += OnDead;
 			SceneLoader.onStartedLoadingScene += OnSceneLoading;
 			LoadConfig();
+			if (ModConfigAPI.IsAvailable())
+			{
+				LoadConfigThroughModConfig();
+			}
 		}
 		private void OnDisable()
 		{
+			harmony.UnpatchAll();
 			Health.OnDead -= OnDead;
 			if (player_character_control != null)
 			{
@@ -689,6 +698,11 @@ namespace BFKillFeedback
 							hide_reload_progress_bar = (bool)property.Value;
 							continue;
 						}
+						if (property.Name == "disable_vanilla_kill_feedback_sound" && property.Value.Type == JTokenType.Boolean)
+						{
+							disable_vanilla_kill_feedback_sound = (bool)property.Value;
+							continue;
+						}
 					}
 				}
 				else
@@ -726,6 +740,7 @@ namespace BFKillFeedback
 			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "addition_scale", Localization.Tr("settings.addition_scale"), false);
 			ModConfigAPI.SafeAddDropdownList(MOD_NAME, "use_sfx_namespace", Localization.Tr("settings.use_sfx_namespace"), namespaces, typeof(string), "bf5");
 			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "hide_reload_progress_bar", Localization.Tr("settings.hide_reload_progress_bar"), true);
+			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "disable_vanilla_kill_feedback_sound", Localization.Tr("settings.disable_vanilla_kill_feedback_sound"), false);
 			ModConfigAPI.SafeAddOnOptionsChangedDelegate(OnModConfigOptionsChanged);
 		}
 		public void OnModConfigOptionsChanged(string key)
@@ -741,6 +756,7 @@ namespace BFKillFeedback
 			position_offset.y = ModConfigAPI.SafeLoad<float>(MOD_NAME, "position_offset_y", -0.2f);
 			addition_scale = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "addition_scale", false);
 			hide_reload_progress_bar = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "hide_reload_progress_bar", true);
+			disable_vanilla_kill_feedback_sound = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "disable_vanilla_kill_feedback_sound", false);
 			string new_namespace = ModConfigAPI.SafeLoad<string>(MOD_NAME, "use_sfx_namespace", "bf5");
 			if (new_namespace != sfx_namespace)
 			{
