@@ -37,6 +37,29 @@ namespace BFKillFeedback
 			}
 			return success;
 		}
+		// 用于收集音频路径的重载
+		public static void LoadSoundWhiler(string dll_dir, string exe_dir, string file_name_prefix, string file_extension, ref List<string> target_list)
+		{
+			int counter = 0;
+			while (true)
+			{
+				string path = "";
+				if (File.Exists(Path.Combine(dll_dir, file_name_prefix + counter.ToString() + file_extension)))
+				{ //检查dll目录
+					path = Path.Combine(dll_dir, file_name_prefix + counter.ToString() + file_extension);
+				}
+				if (File.Exists(Path.Combine(exe_dir, file_name_prefix + counter.ToString() + file_extension)))
+				{ //检查游戏流资源目录
+					path = Path.Combine(exe_dir, file_name_prefix + counter.ToString() + file_extension);
+				}
+				if (path == "")
+				{ //两边都没有目标文件，结束普通击杀音频的寻找
+					break;
+				}
+				target_list.Add(path);
+				counter++;
+			}
+		}
 		public static bool LoadSound(string path_to_file, ref List<Sound> target_list)
 		{
 			bool success = true;

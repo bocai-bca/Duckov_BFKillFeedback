@@ -1,4 +1,6 @@
-﻿using FMOD;
+﻿using Duckov;
+using FMOD;
+using FMOD.Studio;
 using FMODUnity;
 using HarmonyLib;
 using ItemStatsSystem;
@@ -71,6 +73,7 @@ namespace BFKillFeedback
 		// 从硬盘加载到内存的图片资源
 		public static Dictionary<string, Sprite> Images = new Dictionary<string, Sprite>();
 		// 从硬盘加载到内存的音频资源
+		/*
 		public static List<Sound> AudiosDeath = new List<Sound>();
 		public static List<Sound> AudiosKill = new List<Sound>();
 		public static List<Sound> AudiosHeadKill = new List<Sound>();
@@ -80,6 +83,16 @@ namespace BFKillFeedback
 		public static List<Sound> AudiosOneshotMeleeKill = new List<Sound>();
 		public static List<Sound> AudiosExplosionKill = new List<Sound>();
 		public static List<Sound> AudiosOneshotExplosionKill = new List<Sound>();
+		*/
+		public static List<string> AudiosDeath = new List<string>();
+		public static List<string> AudiosKill = new List<string>();
+		public static List<string> AudiosHeadKill = new List<string>();
+		public static List<string> AudiosOneshotHeadKill = new List<string>();
+		public static List<string> AudiosMeleeKill = new List<string>();
+		public static List<string> AudiosCritMeleeKill = new List<string>();
+		public static List<string> AudiosOneshotMeleeKill = new List<string>();
+		public static List<string> AudiosExplosionKill = new List<string>();
+		public static List<string> AudiosOneshotExplosionKill = new List<string>();
 		public static RectTransform? ui_transform;
 		public static RectTransform? ui_text_transform;
 		public static TextMeshProUGUI? ui_text;
@@ -222,9 +235,11 @@ namespace BFKillFeedback
 			{
 				if (AudiosDeath.Count > 0)
 				{
-					RuntimeManager.GetBus("bus:/Master/SFX").getChannelGroup(out ChannelGroup channelgroup);
-					RuntimeManager.CoreSystem.playSound(AudiosDeath[random.Next(0, AudiosDeath.Count)], channelgroup, false, out Channel channel);
-					channel.setVolume(volume);
+					//RuntimeManager.GetBus("bus:/Master/SFX").getChannelGroup(out ChannelGroup channelgroup);
+					//RuntimeManager.CoreSystem.playSound(AudiosDeath[random.Next(0, AudiosDeath.Count)], channelgroup, false, out Channel channel);
+					//channel.setVolume(volume);
+					EventInstance? event_instance = AudioManager.PostCustomSFX(AudiosDeath[random.Next(0, AudiosDeath.Count)]);
+					event_instance?.setVolume(volume);
 				}
 				return;
 			}
@@ -249,17 +264,17 @@ namespace BFKillFeedback
 				CreateUI();
 			}
 			// 确定使用的资源
-			Sound audio = new Sound();
+			string audio = "";
 			bool audio_set = false;
 			if (explosion_kill) //爆炸
 			{
 				if (oneshotkill)
 				{
-					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotExplosionKill, AudiosExplosionKill, AudiosKill });
+					audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosOneshotExplosionKill, AudiosExplosionKill, AudiosKill });
 				}
 				else
 				{
-					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosExplosionKill, AudiosKill });
+					audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosExplosionKill, AudiosKill });
 				}
 			}
 			if (melee_kill && !audio_set) //近战
@@ -268,22 +283,22 @@ namespace BFKillFeedback
 				{
 					if (crit)
 					{
-						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotMeleeKill, AudiosCritMeleeKill, AudiosMeleeKill, AudiosKill });
+						audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosOneshotMeleeKill, AudiosCritMeleeKill, AudiosMeleeKill, AudiosKill });
 					}
 					else
 					{
-						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotMeleeKill, AudiosMeleeKill, AudiosKill });
+						audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosOneshotMeleeKill, AudiosMeleeKill, AudiosKill });
 					}
 				}
 				else
 				{
 					if (crit)
 					{
-						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosCritMeleeKill, AudiosMeleeKill, AudiosKill });
+						audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosCritMeleeKill, AudiosMeleeKill, AudiosKill });
 					}
 					else
 					{
-						audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosMeleeKill, AudiosKill });
+						audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosMeleeKill, AudiosKill });
 					}
 				}
 			}
@@ -291,22 +306,26 @@ namespace BFKillFeedback
 			{
 				if (oneshotkill)
 				{
-					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosOneshotHeadKill, AudiosHeadKill, AudiosKill });
+					audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosOneshotHeadKill, AudiosHeadKill, AudiosKill });
 				}
 				else if (crit)
 				{
-					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosHeadKill, AudiosKill });
+					audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosHeadKill, AudiosKill });
 				}
 				else
 				{
-					audio_set = SoundChooser(out audio, new List<List<Sound>>() { AudiosKill });
+					audio_set = SoundChooser(out audio, new List<List<string>>() { AudiosKill });
 				}
 			}
 			if (audio_set)
 			{
+				/*
 				RuntimeManager.GetBus("bus:/Master/SFX").getChannelGroup(out ChannelGroup channel_group);
 				RuntimeManager.CoreSystem.playSound(audio, channel_group, false, out Channel channel);
 				channel.setVolume(volume);
+				*/
+				EventInstance? event_instance = AudioManager.PostCustomSFX(audio);
+				event_instance?.setVolume(volume);
 			}
 			// 图标
 			if (crit && !explosion_kill)
@@ -342,9 +361,9 @@ namespace BFKillFeedback
 				}
 			}
 		}
-		public static bool SoundChooser(out Sound sound, List<List<Sound>> source_list_and_fallbacks)
+		public static bool SoundChooser(out string result, List<List<string>> source_list_and_fallbacks)
 		{
-			sound = new Sound();
+			result = "";
 			if (!(source_list_and_fallbacks != null && source_list_and_fallbacks.Count > 0))
 			{
 				return false;
@@ -353,7 +372,7 @@ namespace BFKillFeedback
 			{
 				if (source_list_and_fallbacks[i] != null && source_list_and_fallbacks[i].Count > 0)
 				{
-					sound = source_list_and_fallbacks[i][random.Next(0, source_list_and_fallbacks[i].Count)];
+					result = source_list_and_fallbacks[i][random.Next(0, source_list_and_fallbacks[i].Count)];
 					return true;
 				}
 			}
@@ -837,7 +856,6 @@ namespace BFKillFeedback
 		}
 		public static bool LoadSounds(string the_namespace)
 		{
-			bool success = true;
 			UnityEngine.Debug.Log("BFKillFeedback: 开始从命名空间" + the_namespace + "加载音频/Start to load audios from namespace " + the_namespace);
 			string dll_dir = Path.Combine(Utils.GetDllDirectory(), "AudioNamespaces", the_namespace);
 			string exe_dir = Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "AudioNamespaces", the_namespace);
@@ -851,24 +869,24 @@ namespace BFKillFeedback
 			AudiosExplosionKill.Clear();
 			AudiosOneshotExplosionKill.Clear();
 			//加载玩家自己死亡 无法回退
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "death_", ".wav", ref AudiosDeath);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "death_", ".wav", ref AudiosDeath);
 			//加载普通击杀 无法回退
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "kill_", ".wav", ref AudiosKill);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "kill_", ".wav", ref AudiosKill);
 			//加载爆头击杀 回退到 普通击杀
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "headkill_", ".wav", ref AudiosHeadKill);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "headkill_", ".wav", ref AudiosHeadKill);
 			//加载一发秒爆头击杀 回退到 爆头击杀
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "oneshotheadkill_", ".wav", ref AudiosOneshotHeadKill);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "oneshotheadkill_", ".wav", ref AudiosOneshotHeadKill);
 			//加载近战击杀 回退到 普通击杀
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "meleekill_", ".wav", ref AudiosMeleeKill);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "meleekill_", ".wav", ref AudiosMeleeKill);
 			//加载暴击近战击杀 回退到 近战击杀
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "critmeleekill_", ".wav", ref AudiosCritMeleeKill);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "critmeleekill_", ".wav", ref AudiosCritMeleeKill);
 			//加载一发秒近战击杀 回退到 暴击近战击杀 或 近战击杀(无暴击时)
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "onemeleekill_", ".wav", ref AudiosOneshotMeleeKill);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "onemeleekill_", ".wav", ref AudiosOneshotMeleeKill);
 			//加载爆炸击杀 回退到 普通击杀
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "explosionkill_", ".wav", ref AudiosExplosionKill);
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "explosionkill_", ".wav", ref AudiosExplosionKill);
 			//加载一发秒爆炸击杀 回退到 爆炸击杀
-			success = success && Utils.LoadSoundWhiler(dll_dir, exe_dir, "oneexplosionkill_", ".wav", ref AudiosOneshotExplosionKill);
-			return success;
+			Utils.LoadSoundWhiler(dll_dir, exe_dir, "oneexplosionkill_", ".wav", ref AudiosOneshotExplosionKill);
+			return true;
 		}
 		// 创建UI
 		public void CreateUI()
