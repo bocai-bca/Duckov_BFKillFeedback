@@ -803,17 +803,17 @@ namespace BFKillFeedback
 				UnityEngine.Debug.Log("BFKillFeedback: Now path is " + dll_path);
 				if (File.Exists(exe_path))
 				{
-					icon_bytes = File.ReadAllBytes(dll_path);
+					icon_bytes = File.ReadAllBytes(exe_path);
 					icon_texture = new Texture2D(2560, 2560);
 					if (icon_texture.LoadImage(icon_bytes))
 					{
 						Images.TryAdd(image_name, Sprite.Create(icon_texture, new Rect(0.0f, 0.0f, icon_texture.width, icon_texture.height), new Vector2(icon_texture.width / 2.0f, icon_texture.height / 2.0f)));
 						preloader_image.sprite = Images[image_name];
 						success = success && true;
-						UnityEngine.Debug.Log("BFKillFeedback: 覆盖纹理加载成功 = " + dll_path);
+						UnityEngine.Debug.Log("BFKillFeedback: 覆盖纹理加载成功 = " + exe_path);
 						continue;
 					}
-					UnityEngine.Debug.LogError("BFKillFeedback: 加载覆盖纹理失败/Failed to load texture = " + dll_path);
+					UnityEngine.Debug.LogError("BFKillFeedback: 加载覆盖纹理失败/Failed to load texture = " + exe_path);
 					UnityEngine.Debug.LogError("BFKillFeedback: 将尝试回退到原版纹理/Trying to fallback");
 					if (!File.Exists(dll_path))
 					{
