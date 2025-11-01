@@ -30,8 +30,8 @@
 此外，本模组具备一套精心设计的音效自定义功能和一个基本图像替换功能。  
 关于配置文件和音频自定义、图像替换的详情请见[自定义参考文档](.github/Custom_README_zh.md)。
 
-ModConfig相关链接：
-[Github存储库](https://github.com/FrozenFish259/duckov_mod_config)
+ModConfig相关链接：  
+[Github存储库](https://github.com/FrozenFish259/duckov_mod_config)  
 [创意工坊链接](https://steamcommunity.com/sharedfiles/filedetails/?id=3590674339)
 
 ##### 使用ModConfig时的注意事项
