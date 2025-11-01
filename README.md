@@ -6,23 +6,23 @@
 ![preview_2](.github/preview_2.jpg)
 ![preview_3](.github/preview_3.jpg)
 # 安装与运行
-### 获取模组与安装
+## 获取模组与安装
 可从以下两种方式中任选其一
-##### Steam创意工坊
+### Steam创意工坊
 在创意工坊中搜索"战地击杀反馈"可找到本模组，或者通过本链接：
 [https://steamcommunity.com/sharedfiles/filedetails/?id=3593164987](https://steamcommunity.com/sharedfiles/filedetails/?id=3593164987)
 在创意工坊中订阅本模组即可，本模组会被Steam自动下载到此位置：
 `<SteamLibrary>/steamapps/workshop/content/3167020/3593164987`
-##### 手动安装
+### 手动安装
 从本存储库或者其他地方下载到本模组的发行版，将文件放置在`Escape From Duckov/Duckov_Data/Mods`中，其中`Mods`目录若不存在则需要手动创建。建议确保本模组以套一层目录的形态放在`Mods`中，以免和其他模组缠绕交错。
-### 运行依赖
+## 运行依赖
 本模组依赖HarmonyX运行，为游戏添加HarmonyX主要有两种方式。
-##### 第一种，订阅创意工坊中的HarmonyLib
+### 第一种，订阅创意工坊中的HarmonyLib
 如果你是Steam玩家，可以从创意工坊中订阅HarmonyLib。订阅之后打开游戏，请在Mods界面中确保HarmonyLib的排序位于本模组之上。
-##### 第二种，安装BepInEx
+### 第二种，安装BepInEx
 在[BepInEx的Github存储库](https://github.com/BepInEx/BepInEx)中下载BepInEx 5 Mono，这里给一个[5.4.23.4](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.4)的链接，选择对应你电脑处理器架构的下载。将BepInEx安装于游戏即可，BepInEx自带HarmonyX，可用于为本模组提供依赖支持。
 > 什么？BepInEx下好了怎么安装到游戏？教程一堆，自己找。
-### 运行本模组
+## 运行本模组
 配置依赖完全就绪后，在Mods界面中打勾本模组即可。  
 如果使用的是创意工坊中的HarmonyLib，初次调整顺序后可能需要重启一次游戏才能勾选本模组。(BepInEx用户无需留意)
 # 自定义
@@ -34,5 +34,5 @@ ModConfig相关链接：
 [Github存储库](https://github.com/FrozenFish259/duckov_mod_config)  
 [创意工坊链接](https://steamcommunity.com/sharedfiles/filedetails/?id=3590674339)
 
-##### 使用ModConfig时的注意事项
+### 使用ModConfig时的注意事项
 ModConfig有自己专门的保存设置数据的地方，当你使用ModConfig修改了本模组的参数后，修改内容并不会反映到本模组的原生配置文件中，相对地，在原生配置文件中修改的参数也不会反映到ModConfig的本模组的设置中。本模组在加载时，ModConfig中的设置会覆盖原生配置文件的设置。注意！这种覆盖只作用于内存中，不会修改互相的设置文件。
