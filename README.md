@@ -16,7 +16,7 @@
 ### 手动安装
 从本存储库或者其他地方下载到本模组的发行版，将文件放置在`Escape From Duckov/Duckov_Data/Mods`中，其中`Mods`目录若不存在则需要手动创建。建议确保本模组以套一层目录的形态放在`Mods`中，以免和其他模组缠绕交错。
 ## 运行依赖
-本模组依赖HarmonyX运行，为游戏添加HarmonyX主要有两种方式。
+本模组依赖Harmony运行，为游戏添加Harmony主要有两种方式。
 ### 第一种，订阅创意工坊中的HarmonyLib
 如果你是Steam玩家，可以从创意工坊中订阅HarmonyLib。订阅之后打开游戏，请在Mods界面中确保HarmonyLib的排序位于本模组之上。
 ### 第二种，安装BepInEx
