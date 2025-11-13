@@ -38,9 +38,9 @@ public static class ModConfigAPI
 			// 尝试获取 ModConfig 的版本号
 			// Try to get ModConfig version number
 			if (modBehaviourType == null)
-				{
-					return false;
-				}
+			{
+				return false;
+			}
 			FieldInfo versionField = modBehaviourType.GetField("VERSION", BindingFlags.Public | BindingFlags.Static);
 			if (versionField != null && versionField.FieldType == typeof(int))
 			{

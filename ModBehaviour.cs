@@ -416,7 +416,7 @@ namespace BFKillFeedback
 		}
 		private void OnDisable()
 		{
-			harmony.UnpatchAll();
+			harmony.UnpatchAll("net.bcasoft.bfkillfeedback");
 			Health.OnDead -= OnDead;
 			if (player_character_control != null)
 			{
