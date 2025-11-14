@@ -1,7 +1,5 @@
 ﻿using Duckov;
-using FMOD;
 using FMOD.Studio;
-using FMODUnity;
 using HarmonyLib;
 using ItemStatsSystem;
 using Newtonsoft.Json;
@@ -9,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Duckov.Modding;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,7 +18,7 @@ namespace BFKillFeedback
 	{
 		public static Harmony harmony = new Harmony("net.bcasoft.bfkillfeedback");
 		public const string MOD_NAME = "BFKillFeedback";
-		public readonly static Vector2 BaseResolution = new Vector2(1920.0f, 1080.0f);
+		public static readonly Vector2 BaseResolution = new Vector2(1920.0f, 1080.0f);
 		public static bool Loaded = false;
 		public static Dictionary<string, object> DefaultConfig = new Dictionary<string, object>(){
 			{"use_sfx_namespace", "bf5"}, //使用的音效命名空间
@@ -172,7 +171,7 @@ namespace BFKillFeedback
 		public static bool disable_vanilla_kill_feedback_sound = false;
 		public static bool is_last_frame_progressing = false;
 		public static List<ISkull> skulls = new List<ISkull>();
-		public static System.Random random = new System.Random(System.DateTime.Now.Second);
+		public static System.Random random = new System.Random(DateTime.Now.Second);
 		public static Dictionary<string, int> kill_counter = new Dictionary<string, int>(); //击杀计数器，记录当前局内各种敌人都杀了几次
 		public static string last_scene_name = "";
 		private void Update()
@@ -244,7 +243,7 @@ namespace BFKillFeedback
 				return;
 			}
 			// 如果伤害来自玩家队
-			if (damageInfo.fromCharacter.Team == Teams.player)
+			if (damageInfo.fromCharacter.IsMainCharacter())
 			{
 				bool headshot = damageInfo.crit > 0;
 				bool oneshotkill = damageInfo.finalDamage >= health.MaxHealth * 0.9f;
@@ -395,6 +394,7 @@ namespace BFKillFeedback
 					InjectModConfig();
 					LoadConfigThroughModConfig();
 				}
+				
 				UnityEngine.Debug.Log("BFKillFeedback: 已载入/Loaded");
 				Loaded = true;
 			}
@@ -407,6 +407,7 @@ namespace BFKillFeedback
 		{
 			harmony.PatchAll();
 			Health.OnDead += OnDead;
+			ModManager.OnModActivated += ModManager_OnModActivated;
 			SceneLoader.onStartedLoadingScene += OnSceneLoading;
 			LoadConfig();
 			if (ModConfigAPI.IsAvailable())
@@ -418,6 +419,7 @@ namespace BFKillFeedback
 		{
 			harmony.UnpatchAll("net.bcasoft.bfkillfeedback");
 			Health.OnDead -= OnDead;
+			ModManager.OnModActivated -= ModManager_OnModActivated;
 			if (player_character_control != null)
 			{
 				player_character_control.OnActionStartEvent -= OnActionStart;
@@ -505,47 +507,47 @@ namespace BFKillFeedback
 							sfx_namespace = property.Value.ToString();
 							continue;
 						}
-						if (property.Name == "volume" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "volume", Value: { Type: JTokenType.Float } })
 						{
 							volume = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "max_skull_count" && property.Value.Type == JTokenType.Integer)
+						if (property is { Name: "max_skull_count", Value: { Type: JTokenType.Integer } })
 						{
 							max_skull_count = (int)property.Value;
 							continue;
 						}
-						if (property.Name == "enforce_max_skull_count" && property.Value.Type == JTokenType.Integer)
+						if (property is { Name: "enforce_max_skull_count", Value: { Type: JTokenType.Integer } })
 						{
 							enforce_max_skull_count = (int)property.Value;
 							continue;
 						}
-						if (property.Name == "disable_icon" && property.Value.Type == JTokenType.Boolean)
+						if (property is { Name: "disable_icon", Value: { Type: JTokenType.Boolean } })
 						{
 							disable_icon = (bool)property.Value;
 							continue;
 						}
-						if (property.Name == "skull_fadein_seconds" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "skull_fadein_seconds", Value: { Type: JTokenType.Float } })
 						{
 							skull_fadein_seconds = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "skull_stay_seconds" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "skull_stay_seconds", Value: { Type: JTokenType.Float } })
 						{
 							skull_stay_seconds = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "skull_fadeout_seconds" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "skull_fadeout_seconds", Value: { Type: JTokenType.Float } })
 						{
 							skull_fadeout_seconds = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "skull_spacing" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "skull_spacing", Value: { Type: JTokenType.Float } })
 						{
 							skull_spacing = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "skull_color" && property.Value.Type == JTokenType.String)
+						if (property is { Name: "skull_color", Value: { Type: JTokenType.String } })
 						{
 							string value = property.Value.ToString();
 							if (value.Length == 8)
@@ -558,7 +560,7 @@ namespace BFKillFeedback
 							}
 							continue;
 						}
-						if (property.Name == "headshot_skull_color" && property.Value.Type == JTokenType.String)
+						if (property is { Name: "headshot_skull_color", Value: { Type: JTokenType.String } })
 						{
 							string value = property.Value.ToString();
 							if (value.Length == 6)
@@ -571,57 +573,57 @@ namespace BFKillFeedback
 							}
 							continue;
 						}
-						if (property.Name == "headshot_ring_init_size_rate" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "headshot_ring_init_size_rate", Value: { Type: JTokenType.Float } })
 						{
 							headshot_ring_init_size_rate = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "headshot_ring_max_size_rate" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "headshot_ring_max_size_rate", Value: { Type: JTokenType.Float } })
 						{
 							headshot_ring_max_size_rate = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "headshot_ring_bold_alpha_decrease" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "headshot_ring_bold_alpha_decrease", Value: { Type: JTokenType.Float } })
 						{
 							headshot_ring_bold_alpha_decrease = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "headshot_ring_stay_seconds" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "headshot_ring_stay_seconds", Value: { Type: JTokenType.Float } })
 						{
 							headshot_ring_stay_seconds = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "position_offset_x" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "position_offset_x", Value: { Type: JTokenType.Float } })
 						{
 							position_offset.x = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "position_offset_y" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "position_offset_y", Value: { Type: JTokenType.Float } })
 						{
 							position_offset.y = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "scale" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "scale", Value: { Type: JTokenType.Float } })
 						{
 							scale = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "addition_scale" && property.Value.Type == JTokenType.Boolean)
+						if (property is { Name: "addition_scale", Value: { Type: JTokenType.Boolean } })
 						{
 							addition_scale = (bool)property.Value;
 							continue;
 						}
-						if (property.Name == "skull_scale_on_drop" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "skull_scale_on_drop", Value: { Type: JTokenType.Float } })
 						{
 							skull_scale_on_drop = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "disable_text" && property.Value.Type == JTokenType.Boolean)
+						if (property is { Name: "disable_text", Value: { Type: JTokenType.Boolean } })
 						{
 							disable_text = (bool)property.Value;
 							continue;
 						}
-						if (property.Name == "text_color" && property.Value.Type == JTokenType.String)
+						if (property is { Name: "text_color", Value: { Type: JTokenType.String } })
 						{
 							string value = property.Value.ToString();
 							if (value.Length == 6)
@@ -634,47 +636,47 @@ namespace BFKillFeedback
 							}
 							continue;
 						}
-						if (property.Name == "text_position_offset_x" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "text_position_offset_x", Value: { Type: JTokenType.Float } })
 						{
 							text_position_offset.x = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "text_position_offset_y" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "text_position_offset_y", Value: { Type: JTokenType.Float } })
 						{
 							text_position_offset.y = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "text_scale" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "text_scale", Value: { Type: JTokenType.Float } })
 						{
 							text_scale = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "text_template" && property.Value.Type == JTokenType.String)
+						if (property is { Name: "text_template", Value: { Type: JTokenType.String } })
 						{
 							text_template = property.Value.ToString();
 							continue;
 						}
-						if (property.Name == "text_stay_seconds" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "text_stay_seconds", Value: { Type: JTokenType.Float } })
 						{
 							text_stay_seconds = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "text_memory_length" && property.Value.Type == JTokenType.Integer)
+						if (property is { Name: "text_memory_length", Value: { Type: JTokenType.Integer } })
 						{
 							text_memory_length = (int)property.Value;
 							continue;
 						}
-						if (property.Name == "text_fade_seconds" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "text_fade_seconds", Value: { Type: JTokenType.Float } })
 						{
 							text_fade_seconds = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "disable_score" && property.Value.Type == JTokenType.Boolean)
+						if (property is { Name: "disable_score", Value: { Type: JTokenType.Boolean } })
 						{
 							disable_score = (bool)property.Value;
 							continue;
 						}
-						if (property.Name == "score_color" && property.Value.Type == JTokenType.String)
+						if (property is { Name: "score_color", Value: { Type: JTokenType.String } })
 						{
 							string value = property.Value.ToString();
 							if (value.Length == 6)
@@ -687,37 +689,37 @@ namespace BFKillFeedback
 							}
 							continue;
 						}
-						if (property.Name == "score_text_position_offset_x" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "score_text_position_offset_x", Value: { Type: JTokenType.Float } })
 						{
 							score_text_position_offset.x = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "score_text_position_offset_y" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "score_text_position_offset_y", Value: { Type: JTokenType.Float } })
 						{
 							score_text_position_offset.y = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "score_scale" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "score_scale", Value: { Type: JTokenType.Float } })
 						{
 							score_scale = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "score_text_number_increase_per_second" && property.Value.Type == JTokenType.Integer)
+						if (property is { Name: "score_text_number_increase_per_second", Value: { Type: JTokenType.Integer } })
 						{
 							score_text_number_increase_per_second = (int)property.Value;
 							continue;
 						}
-						if (property.Name == "score_text_stay_seconds" && property.Value.Type == JTokenType.Float)
+						if (property is { Name: "score_text_stay_seconds", Value: { Type: JTokenType.Float } })
 						{
 							score_text_stay_seconds = (float)property.Value;
 							continue;
 						}
-						if (property.Name == "hide_reload_progress_bar" && property.Value.Type == JTokenType.Boolean)
+						if (property is { Name: "hide_reload_progress_bar", Value: { Type: JTokenType.Boolean } })
 						{
 							hide_reload_progress_bar = (bool)property.Value;
 							continue;
 						}
-						if (property.Name == "disable_vanilla_kill_feedback_sound" && property.Value.Type == JTokenType.Boolean)
+						if (property is { Name: "disable_vanilla_kill_feedback_sound", Value: { Type: JTokenType.Boolean } })
 						{
 							disable_vanilla_kill_feedback_sound = (bool)property.Value;
 							continue;
@@ -737,19 +739,9 @@ namespace BFKillFeedback
 		public void InjectModConfig()
 		{
 			SortedDictionary<string, object> namespaces = new SortedDictionary<string, object>();
-			foreach (string dir in Directory.GetDirectories(Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "AudioNamespaces")))
+			foreach (string audio_namespace in GetAudioNamespaces())
 			{
-				string name = Path.GetFileName(dir);
-				namespaces.Add(name, name);
-			}
-			foreach (string dir in Directory.GetDirectories(Path.Combine(Utils.GetDllDirectory(), "AudioNamespaces")))
-			{
-				string name = Path.GetFileName(dir);
-				if (namespaces.ContainsKey(name))
-				{
-					continue;
-				}
-				namespaces.Add(name, name);
+				namespaces.Add(audio_namespace, audio_namespace);
 			}
 			ModConfigAPI.SafeAddInputWithSlider(MOD_NAME, "volume", Localization.Tr("settings.volume"), typeof(float), 0.6f, new Vector2(0.0f, 1.0f));
 			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "disable_icon", Localization.Tr("settings.disable_icon"), false);
@@ -761,6 +753,26 @@ namespace BFKillFeedback
 			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "hide_reload_progress_bar", Localization.Tr("settings.hide_reload_progress_bar"), true);
 			ModConfigAPI.SafeAddBoolDropdownList(MOD_NAME, "disable_vanilla_kill_feedback_sound", Localization.Tr("settings.disable_vanilla_kill_feedback_sound"), false);
 			ModConfigAPI.SafeAddOnOptionsChangedDelegate(OnModConfigOptionsChanged);
+		}
+		public void InjectModSetting()
+		{
+			ModSettingAPI.AddSlider("volume", Localization.Tr("settings.volume"), 0.6f, new Vector2(0f, 1f), value => volume = value, 1, 4);
+			ModSettingAPI.AddToggle("disable_icon", Localization.Tr("settings.disable_icon"), false, value => disable_icon = value);
+			ModSettingAPI.AddSlider("scale", Localization.Tr("settings.scale"), 0.7f, new Vector2(0f, 3f), value => scale = value, 2, 5);
+			ModSettingAPI.AddSlider("position_offset_x", Localization.Tr("settings.position_offset_x"), 0.0f, new Vector2(-2f, 2f), value => position_offset.x = value, 1, 4);
+			ModSettingAPI.AddSlider("position_offset_y", Localization.Tr("settings.position_offset_y"), -0.6f, new Vector2(-2f, 2f), value => position_offset.y = value, 1, 4);
+			ModSettingAPI.AddToggle("addition_scale", Localization.Tr("settings.addition_scale"), false, value => addition_scale = value);
+			ModSettingAPI.AddDropdownList("use_sfx_namespace", Localization.Tr("settings.use_sfx_namespace"), GetAudioNamespaces(), "bf5", OnModSettingSFXNamespaceChanged);
+			ModSettingAPI.AddToggle("hide_reload_progress_bar", Localization.Tr("settings.hide_reload_progress_bar"), true, value => hide_reload_progress_bar = value);
+			ModSettingAPI.AddToggle("disable_vanilla_kill_feedback_sound", Localization.Tr("settings.disable_vanilla_kill_feedback_sound"), false, value => disable_vanilla_kill_feedback_sound = value);
+		}
+		public void OnModSettingSFXNamespaceChanged(string newNameSpace)
+		{
+			if (GetAudioNamespaces().Contains(newNameSpace) && newNameSpace != sfx_namespace)
+			{
+				sfx_namespace = newNameSpace;
+				LoadSounds(sfx_namespace);
+			}
 		}
 		public void OnModConfigOptionsChanged(string key)
 		{
@@ -777,10 +789,30 @@ namespace BFKillFeedback
 			hide_reload_progress_bar = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "hide_reload_progress_bar", true);
 			disable_vanilla_kill_feedback_sound = ModConfigAPI.SafeLoad<bool>(MOD_NAME, "disable_vanilla_kill_feedback_sound", false);
 			string new_namespace = ModConfigAPI.SafeLoad<string>(MOD_NAME, "use_sfx_namespace", "bf5");
-			if (new_namespace != sfx_namespace)
+			if (GetAudioNamespaces().Contains(new_namespace) && new_namespace != sfx_namespace)
 			{
 				sfx_namespace = new_namespace;
 				LoadSounds(sfx_namespace);
+			}
+		}
+		public void LoadConfigThroughModSetting()
+		{
+			if (ModSettingAPI.HasConfig())
+			{
+				volume = ModSettingAPI.GetSavedValue("volume", out float value_volume) ? value_volume : 0.6f;
+				disable_icon = ModSettingAPI.GetSavedValue("disable_icon", out bool value_disable_icon) && value_disable_icon;
+				scale = ModSettingAPI.GetSavedValue("scale", out float value_scale) ? value_scale : 0.7f;
+				position_offset.x = ModSettingAPI.GetSavedValue("position_offset_x", out float value_position_offset_x) ? value_position_offset_x : 0.0f;
+				position_offset.y = ModSettingAPI.GetSavedValue("position_offset_y", out float value_position_offset_y) ? value_position_offset_y : 0.0f;
+				addition_scale = ModSettingAPI.GetSavedValue("addition_scale", out bool value_addition_scale) && value_addition_scale;
+				hide_reload_progress_bar = !ModSettingAPI.GetSavedValue("hide_reload_progress_bar", out bool value_hide_reload_progress_bar) || value_hide_reload_progress_bar;
+				disable_vanilla_kill_feedback_sound = ModSettingAPI.GetSavedValue("disable_vanilla_kill_feedback_sound", out bool value_disable_vanilla_kill_feedback_sound) && value_disable_vanilla_kill_feedback_sound;
+				string new_namespace = ModConfigAPI.SafeLoad<string>(MOD_NAME, "use_sfx_namespace", "bf5");
+				if (GetAudioNamespaces().Contains(new_namespace) && new_namespace != sfx_namespace)
+				{
+					sfx_namespace = new_namespace;
+					LoadSounds(sfx_namespace);
+				}
 			}
 		}
 		// 加载资源方法，返回成功与否
@@ -854,6 +886,31 @@ namespace BFKillFeedback
 			UnityEngine.Object.Destroy(preloader);
 			return success;
 		}
+
+		public static List<string> GetAudioNamespaces()
+		{
+			List<string> namespaces = new List<string>();
+			foreach (string dir in Directory.GetDirectories(Path.Combine(Application.streamingAssetsPath, "BFKillFeedback", "AudioNamespaces")))
+			{
+				string name = Path.GetFileName(dir);
+				if (namespaces.Contains(name))
+				{
+					continue;
+				}
+				namespaces.Add(name);
+			}
+			foreach (string dir in Directory.GetDirectories(Path.Combine(Utils.GetDllDirectory(), "AudioNamespaces")))
+			{
+				string name = Path.GetFileName(dir);
+				if (namespaces.Contains(name))
+				{
+					continue;
+				}
+				namespaces.Add(name);
+			}
+
+			return namespaces;
+		}
 		public static bool LoadSounds(string the_namespace)
 		{
 			UnityEngine.Debug.Log("BFKillFeedback: 开始从命名空间" + the_namespace + "加载音频/Start to load audios from namespace " + the_namespace);
@@ -912,6 +969,20 @@ namespace BFKillFeedback
 			ui_score = score_game_object.AddComponent<TextMeshProUGUI>();
 			ui_score.alignment = TextAlignmentOptions.Center;
 			UnityEngine.Debug.Log("BFKillFeedback: 已创建UI/UI created");
+		}
+		private void ModManager_OnModActivated(ModInfo arg1, Duckov.Modding.ModBehaviour arg2) {
+			if (arg1.name != ModSettingAPI.MOD_NAME || !ModSettingAPI.Init(info)) return;
+			//(触发时机:此mod在ModSetting之前启用)检查启用的mod是否是ModSetting,是进行初始化
+			//先从ModSetting中读取配置
+			LoadConfigThroughModSetting();
+			InjectModSetting();
+		}
+		protected override void OnAfterSetup() {
+			//(触发时机:ModSetting在此mod之前启用)此mod，Setup后,尝试进行初始化
+			if (!ModSettingAPI.Init(info)) return;
+			//先从ModSetting中读取配置
+			LoadConfigThroughModSetting();
+			InjectModSetting();
 		}
 	}
 }
