@@ -407,7 +407,7 @@ namespace BFKillFeedback
 		{
 			harmony.PatchAll();
 			Health.OnDead += OnDead;
-			ModManager.OnModActivated += ModManager_OnModActivated;
+			//ModManager.OnModActivated += ModManager_OnModActivated;
 			SceneLoader.onStartedLoadingScene += OnSceneLoading;
 			LoadConfig();
 			if (ModConfigAPI.IsAvailable())
@@ -419,7 +419,7 @@ namespace BFKillFeedback
 		{
 			harmony.UnpatchAll("net.bcasoft.bfkillfeedback");
 			Health.OnDead -= OnDead;
-			ModManager.OnModActivated -= ModManager_OnModActivated;
+			//ModManager.OnModActivated -= ModManager_OnModActivated;
 			if (player_character_control != null)
 			{
 				player_character_control.OnActionStartEvent -= OnActionStart;
