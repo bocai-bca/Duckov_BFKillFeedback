@@ -59,8 +59,8 @@ namespace BFKillFeedback
 			{
 				return;
 			}
-			kill_rect.localPosition = new Vector3(ModBehaviour.text_position_offset.x * ModBehaviour.ui_transform.parent.position.x, ModBehaviour.text_position_offset.y * ModBehaviour.ui_transform.parent.position.y);
-			score_rect.localPosition = new Vector3(ModBehaviour.score_text_position_offset.x * ModBehaviour.ui_transform.parent.position.x, ModBehaviour.score_text_position_offset.y * ModBehaviour.ui_transform.parent.position.y);
+			kill_rect.localPosition = new Vector3(ModBehaviour.text_position_offset.x * ModBehaviour.BaseResolution.x * 0.5f, ModBehaviour.text_position_offset.y * ModBehaviour.BaseResolution.y * 0.5f);
+			score_rect.localPosition = new Vector3(ModBehaviour.score_text_position_offset.x * ModBehaviour.BaseResolution.x * 0.5f, ModBehaviour.score_text_position_offset.y * ModBehaviour.BaseResolution.y * 0.5f);
 		}
 		public static void SetScale(RectTransform kill_rect, RectTransform score_rect)
 		{
