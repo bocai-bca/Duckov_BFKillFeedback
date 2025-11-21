@@ -974,15 +974,15 @@ namespace BFKillFeedback
 			if (arg1.name != ModSettingAPI.MOD_NAME || !ModSettingAPI.Init(info)) return;
 			//(触发时机:此mod在ModSetting之前启用)检查启用的mod是否是ModSetting,是进行初始化
 			//先从ModSetting中读取配置
-			LoadConfigThroughModSetting();
-			InjectModSetting();
+			//LoadConfigThroughModSetting();
+			//InjectModSetting();
 		}
 		protected override void OnAfterSetup() {
 			//(触发时机:ModSetting在此mod之前启用)此mod，Setup后,尝试进行初始化
 			if (!ModSettingAPI.Init(info)) return;
 			//先从ModSetting中读取配置
-			LoadConfigThroughModSetting();
-			InjectModSetting();
+			//LoadConfigThroughModSetting();
+			//InjectModSetting();
 		}
 	}
 }
